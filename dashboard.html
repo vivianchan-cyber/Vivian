@@ -1,0 +1,902 @@
+<title>dashboard</title>
+<style>
+  :root {
+    --bg: #eef0f4;
+    --surface: #ffffff;
+    --surface-2: #f6f7fa;
+    --line: #e3e6ee;
+    --ink: #1a1d27;
+    --ink-2: #565d70;
+    --muted: #8a90a3;
+    --accent: #4653c9;
+    --accent-ink: #ffffff;
+    --accent-soft: #eceefb;
+    --up: #1d7a46;
+    --up-soft: #e3f2e9;
+    --down: #c43c42;
+    --down-soft: #fbe9ea;
+    --warn: #8a5a00;
+    --warn-soft: #fdf2d9;
+    --chip: #eef0f5;
+    --shadow: 0 1px 2px rgba(26, 29, 39, 0.05), 0 4px 16px rgba(26, 29, 39, 0.05);
+    --mono: "SF Mono", "Cascadia Code", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161d;
+      --surface: #1c1f29;
+      --surface-2: #232734;
+      --line: #2e3342;
+      --ink: #e8eaf2;
+      --ink-2: #a7adc0;
+      --muted: #767d92;
+      --accent: #767fe0;
+      --accent-ink: #10121a;
+      --accent-soft: #262b45;
+      --up: #35a870;
+      --up-soft: #1d3229;
+      --down: #f2555a;
+      --down-soft: #3a2226;
+      --warn: #d9a13d;
+      --warn-soft: #332a17;
+      --chip: #262a37;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #eef0f4; --surface: #ffffff; --surface-2: #f6f7fa; --line: #e3e6ee;
+    --ink: #1a1d27; --ink-2: #565d70; --muted: #8a90a3;
+    --accent: #4653c9; --accent-ink: #ffffff; --accent-soft: #eceefb;
+    --up: #1d7a46; --up-soft: #e3f2e9; --down: #c43c42; --down-soft: #fbe9ea;
+    --warn: #8a5a00; --warn-soft: #fdf2d9; --chip: #eef0f5;
+    --shadow: 0 1px 2px rgba(26,29,39,.05), 0 4px 16px rgba(26,29,39,.05);
+  }
+  :root[data-theme="dark"] {
+    --bg: #14161d; --surface: #1c1f29; --surface-2: #232734; --line: #2e3342;
+    --ink: #e8eaf2; --ink-2: #a7adc0; --muted: #767d92;
+    --accent: #767fe0; --accent-ink: #10121a; --accent-soft: #262b45;
+    --up: #35a870; --up-soft: #1d3229; --down: #f2555a; --down-soft: #3a2226;
+    --warn: #d9a13d; --warn-soft: #332a17; --chip: #262a37;
+    --shadow: 0 1px 2px rgba(0,0,0,.35), 0 4px 16px rgba(0,0,0,.3);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.45;
+    margin: 0;
+  }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 28px 20px 48px; }
+
+  .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  /* ---------- header ---------- */
+  header.desk {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 16px;
+    margin-bottom: 20px;
+  }
+  .logo {
+    width: 44px; height: 44px; border-radius: 10px;
+    background: var(--ink); color: var(--bg);
+    display: grid; place-items: center;
+    font-family: var(--mono); font-weight: 700; font-size: 13px; letter-spacing: 0.04em;
+  }
+  .desk-id h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
+  .desk-id p { margin: 2px 0 0; color: var(--ink-2); font-size: 13px; }
+  .desk-right { margin-left: auto; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    border: 1px solid var(--line); background: var(--surface);
+    border-radius: 999px; padding: 6px 13px; font-size: 12.5px; color: var(--ink-2);
+  }
+  .pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .pill.open .dot { background: var(--up); }
+  .pill.closed .dot { background: var(--down); }
+  .snapshot-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--warn-soft); color: var(--warn);
+    border-radius: 999px; padding: 6px 13px; font-size: 12px; font-weight: 600;
+  }
+  .clock { text-align: right; }
+  .clock .t { font-family: var(--mono); font-size: 17px; font-weight: 600; }
+  .clock .d { font-size: 12px; color: var(--muted); }
+  .theme-btn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink-2);
+    width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 15px;
+  }
+  .theme-btn:hover { color: var(--ink); }
+
+  /* ---------- tape ---------- */
+  .tape-scroll { overflow-x: auto; margin-bottom: 20px; border-radius: 12px; box-shadow: var(--shadow); }
+  .tape {
+    display: flex; min-width: max-content;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  }
+  .tape > div {
+    padding: 13px 18px; border-right: 1px solid var(--line); min-width: 106px;
+  }
+  .tape > div:last-child { border-right: none; }
+  .tape .lbl { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: 0.06em; }
+  .tape .val { font-family: var(--mono); font-size: 16px; font-weight: 600; margin: 3px 0 2px; font-variant-numeric: tabular-nums; }
+  .tape .chg { font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .u { color: var(--up); }
+  .d { color: var(--down); }
+  .flat { color: var(--muted); }
+
+  /* ---------- layout ---------- */
+  .grid { display: grid; grid-template-columns: 1.55fr 1fr; gap: 20px; align-items: start; }
+  .col { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+  @media (max-width: 940px) { .grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    box-shadow: var(--shadow); overflow: hidden;
+  }
+  .card-h {
+    display: flex; align-items: center; gap: 9px;
+    padding: 14px 18px; border-bottom: 1px solid var(--line);
+  }
+  .card-h h2 { font-size: 14.5px; margin: 0; font-weight: 650; }
+  .card-h .count {
+    margin-left: auto; background: var(--chip); color: var(--ink-2);
+    font-family: var(--mono); font-size: 11.5px; border-radius: 999px; padding: 2px 9px;
+  }
+  .card-h .tag {
+    margin-left: auto; font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
+    color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px;
+  }
+  .card-b { padding: 16px 18px; }
+  .sec-lbl {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: var(--muted);
+    text-transform: uppercase; margin: 4px 0 10px;
+  }
+
+  .badge {
+    display: inline-block; font-family: var(--mono); font-size: 12px; font-weight: 600;
+    border-radius: 7px; padding: 2px 8px; font-variant-numeric: tabular-nums;
+  }
+  .badge.up { background: var(--up-soft); color: var(--up); }
+  .badge.down { background: var(--down-soft); color: var(--down); }
+  .badge.na { background: var(--chip); color: var(--muted); font-weight: 500; }
+  .badge.warn { background: var(--warn-soft); color: var(--warn); font-family: var(--sans); }
+
+  /* ---------- watchlist ---------- */
+  .add-row { display: flex; gap: 10px; margin-bottom: 6px; }
+  .add-row input {
+    flex: 1; border: 1px solid var(--line); border-radius: 9px; padding: 10px 13px;
+    font-family: var(--mono); font-size: 13px; background: var(--surface-2); color: var(--ink);
+  }
+  .add-row input::placeholder { color: var(--muted); }
+  .add-row input:focus, button:focus-visible, .prompt-row:focus-visible, .rtab:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 1px;
+  }
+  .btn {
+    border: none; background: var(--accent); color: var(--accent-ink);
+    border-radius: 9px; padding: 10px 20px; font-size: 13.5px; font-weight: 600; cursor: pointer;
+  }
+  .hint { font-size: 12px; color: var(--muted); margin: 6px 0 12px; }
+
+  table.wl { width: 100%; border-collapse: collapse; }
+  .wl th {
+    text-align: right; font-family: var(--mono); font-size: 11px; font-weight: 500;
+    color: var(--muted); letter-spacing: 0.06em; padding: 8px 6px; border-bottom: 1px solid var(--line);
+  }
+  .wl th:first-child { text-align: left; }
+  .wl td { padding: 11px 6px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+  .wl tr:last-child td { border-bottom: none; }
+  .wl td:first-child { text-align: left; }
+  .wl .tk { font-family: var(--mono); font-weight: 700; font-size: 13px; }
+  .wl .nm { font-size: 12px; color: var(--muted); }
+  .wl .px { font-family: var(--mono); font-size: 13.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .wl .asof { display: block; font-size: 10.5px; color: var(--muted); font-weight: 400; }
+  .wl .ev { font-size: 12px; color: var(--ink-2); }
+  .rm {
+    border: none; background: none; color: var(--muted); cursor: pointer;
+    font-size: 14px; padding: 2px 6px; border-radius: 6px;
+  }
+  .rm:hover { color: var(--down); background: var(--down-soft); }
+  .wl-scroll { overflow-x: auto; }
+
+  /* ---------- movers / spikes ---------- */
+  .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 640px) { .duo { grid-template-columns: 1fr; } }
+  .mv { display: flex; align-items: center; gap: 11px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .mv:last-child { border-bottom: none; }
+  .mv .tk { font-family: var(--mono); font-weight: 700; font-size: 12.5px; min-width: 74px; }
+  .mv .who { flex: 1; min-width: 0; }
+  .mv .who b { display: block; font-size: 13px; font-weight: 600; }
+  .mv .who span { font-size: 11.5px; color: var(--muted); }
+  .empty {
+    background: var(--surface-2); border: 1px dashed var(--line); border-radius: 10px;
+    padding: 14px 16px; font-size: 12.5px; color: var(--ink-2);
+  }
+
+  /* ---------- fx ---------- */
+  .fx-row { display: flex; align-items: baseline; gap: 10px; padding: 10px 0; }
+  .fx-row .pair { font-size: 13px; font-weight: 650; }
+  .fx-row .rate { font-family: var(--mono); font-size: 24px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .fx-row .badge { margin-left: auto; }
+  .fx-note { font-size: 11.5px; color: var(--muted); margin: -4px 0 8px; }
+  .commentary {
+    background: var(--surface-2); border-left: 3px solid var(--accent);
+    border-radius: 0 10px 10px 0; padding: 12px 14px; font-size: 13px; color: var(--ink-2);
+  }
+  .commentary b { color: var(--ink); }
+
+  /* ---------- macro ---------- */
+  .rates { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 640px) { .rates { grid-template-columns: 1fr; } }
+  .rate-card { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; background: var(--surface-2); }
+  .rate-card .top { display: flex; justify-content: space-between; align-items: baseline; }
+  .rate-card .bank { font-weight: 700; font-size: 13.5px; }
+  .rate-card .r { font-family: var(--mono); font-weight: 650; font-size: 15px; font-variant-numeric: tabular-nums; }
+  .rate-card .next { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+  .rel { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+  .rel:last-child { border-bottom: none; }
+  .rel .k {
+    font-family: var(--mono); font-size: 10.5px; font-weight: 700; color: var(--accent);
+    background: var(--accent-soft); border-radius: 6px; padding: 3px 7px; min-width: 36px; text-align: center;
+  }
+  .rel .what b { display: block; font-size: 13px; font-weight: 600; }
+  .rel .what span { font-size: 11.5px; color: var(--muted); }
+  .rel .when { margin-left: auto; font-family: var(--mono); font-size: 12px; color: var(--ink-2); white-space: nowrap; }
+
+  /* ---------- portfolio ---------- */
+  .tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px; }
+  .tile { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; background: var(--surface-2); }
+  .tile .k { font-size: 10.5px; font-weight: 700; letter-spacing: 0.07em; color: var(--muted); text-transform: uppercase; }
+  .tile .v { font-family: var(--mono); font-size: 19px; font-weight: 650; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .tile .s { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+  .hold { padding: 9px 0; border-bottom: 1px solid var(--line); }
+  .hold:last-child { border-bottom: none; }
+  .hold .top { display: flex; align-items: baseline; gap: 9px; }
+  .hold .tk { font-family: var(--mono); font-weight: 700; font-size: 12px; min-width: 74px; }
+  .hold .nm { font-size: 13px; font-weight: 600; }
+  .hold .right { margin-left: auto; text-align: right; }
+  .hold .w { font-family: var(--mono); font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .hold .bar { height: 5px; border-radius: 3px; background: var(--chip); margin-top: 7px; overflow: hidden; }
+  .hold .bar i { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
+  .pf-note { font-size: 11.5px; color: var(--muted); margin-top: 12px; }
+
+  /* ---------- research ---------- */
+  .rtabs { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .rtab {
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink-2);
+    border-radius: 999px; padding: 5px 15px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+  }
+  .rtab[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .story { padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .story:last-child { border-bottom: none; }
+  .story b { font-size: 13.5px; font-weight: 600; display: block; }
+  .story .src { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+  .story .src em { color: var(--accent); font-style: normal; font-weight: 600; }
+
+  /* ---------- crm ---------- */
+  .person { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .person:last-child { border-bottom: none; }
+  .avatar {
+    width: 38px; height: 38px; border-radius: 50%; flex: none;
+    display: grid; place-items: center; color: #fff; font-size: 12.5px; font-weight: 700;
+  }
+  .person .info { min-width: 0; }
+  .person .info b { font-size: 13.5px; display: block; }
+  .person .info .role { font-size: 12px; color: var(--muted); }
+  .person .info .met { font-size: 11.5px; color: var(--ink-2); margin-top: 2px; }
+  .person .due { margin-left: auto; text-align: right; flex: none; }
+  .chip-due {
+    display: inline-block; font-family: var(--mono); font-size: 10.5px; font-weight: 700;
+    border-radius: 6px; padding: 3px 8px; letter-spacing: 0.04em;
+  }
+  .chip-due.ok { background: var(--accent-soft); color: var(--accent); }
+  .chip-due.late { background: var(--down-soft); color: var(--down); }
+  .person .due .task { font-size: 11.5px; color: var(--ink-2); margin-top: 5px; }
+
+  /* ---------- calendar ---------- */
+  .cal-day { display: flex; gap: 14px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+  .cal-day:last-child { border-bottom: none; }
+  .cal-date { text-align: center; min-width: 40px; flex: none; }
+  .cal-date .dd { font-family: var(--mono); font-size: 17px; font-weight: 700; line-height: 1.1; }
+  .cal-date .mm { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; color: var(--muted); }
+  .cal-what { min-width: 0; }
+  .cal-what b { font-size: 13.5px; display: block; }
+  .cal-what span { font-size: 11.5px; color: var(--muted); }
+  .cal-kind { margin-left: auto; flex: none; }
+  .kind {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.07em; border-radius: 6px; padding: 3px 8px;
+  }
+  .kind.central { background: var(--warn-soft); color: var(--warn); }
+  .kind.earnings { background: var(--accent-soft); color: var(--accent); }
+
+  /* ---------- assistant ---------- */
+  .assistant { margin-top: 20px; }
+  .prompt-row {
+    width: 100%; text-align: left; display: flex; align-items: center; gap: 10px;
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    border-radius: 10px; padding: 12px 15px; font-size: 13.5px; cursor: pointer; margin-bottom: 9px;
+    font-family: var(--sans);
+  }
+  .prompt-row:hover { border-color: var(--accent); }
+  .prompt-row .arrow { color: var(--muted); font-size: 12px; }
+  .prompt-row .copy { margin-left: auto; font-size: 11.5px; color: var(--muted); }
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--ink); color: var(--bg); border-radius: 999px; padding: 9px 20px;
+    font-size: 13px; opacity: 0; pointer-events: none; transition: opacity 0.25s;
+  }
+  .toast.show { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+
+  footer.desk-foot { text-align: center; color: var(--muted); font-size: 12px; margin-top: 34px; line-height: 1.7; }
+</style>
+
+<div class="wrap">
+
+  <!-- header -->
+  <header class="desk">
+    <div class="logo" aria-hidden="true">VCS</div>
+    <div class="desk-id">
+      <h1>Vivian&rsquo;s Desk</h1>
+      <p>Markets &middot; Portfolio &middot; Research &mdash; Singapore</p>
+    </div>
+    <div class="desk-right">
+      <span class="snapshot-chip">&#9679; Data snapshot &middot; 13&ndash;14 Jul 2026</span>
+      <span class="pill" id="mktPill"><span class="dot"></span><span id="mktLbl">SG market</span></span>
+      <div class="clock">
+        <div class="t num" id="clockT">&ndash;&ndash;:&ndash;&ndash;:&ndash;&ndash;</div>
+        <div class="d" id="clockD">&nbsp;</div>
+      </div>
+      <button class="theme-btn" id="themeBtn" title="Toggle light / dark" aria-label="Toggle light or dark theme">&#9681;</button>
+    </div>
+  </header>
+
+  <!-- index tape -->
+  <div class="tape-scroll">
+    <div class="tape" id="tape"></div>
+  </div>
+
+  <div class="grid">
+    <!-- ============ LEFT ============ -->
+    <div class="col">
+
+      <!-- watchlist -->
+      <section class="card">
+        <div class="card-h"><span>&#128200;</span><h2>Watchlist</h2><span class="count" id="wlCount"></span></div>
+        <div class="card-b">
+          <form class="add-row" id="addForm">
+            <input id="addInput" placeholder="Add ticker &mdash; e.g. NVDA, D05.SI, 7203.T" aria-label="Add ticker" />
+            <button class="btn" type="submit">Add</button>
+          </form>
+          <p class="hint">Your list is saved in this browser. Prices are a snapshot (13&ndash;14 Jul close) &mdash; tickers you add show no price until the dashboard&rsquo;s next refresh.</p>
+          <div class="wl-scroll">
+            <table class="wl">
+              <thead><tr><th>TICKER</th><th>LAST</th><th>CHG%</th><th>NEXT RESULTS</th><th></th></tr></thead>
+              <tbody id="wlBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- movers + volume -->
+      <div class="duo">
+        <section class="card">
+          <div class="card-h"><span>&#128640;</span><h2>5% Movers</h2><span class="count" id="mvCount"></span></div>
+          <div class="card-b" id="movers"></div>
+        </section>
+        <section class="card">
+          <div class="card-h"><span>&#128202;</span><h2>Volume Spikes</h2></div>
+          <div class="card-b">
+            <div class="empty">Volume vs 30-day average needs a live feed, which this static page can&rsquo;t reach. Ask Claude to refresh the dashboard and this panel repopulates with sourced data.</div>
+          </div>
+        </section>
+      </div>
+
+      <!-- macro -->
+      <section class="card">
+        <div class="card-h"><span>&#127758;</span><h2>Macro &mdash; Central banks &amp; releases</h2></div>
+        <div class="card-b">
+          <div class="sec-lbl">Policy rates &amp; next decision</div>
+          <div class="rates">
+            <div class="rate-card"><div class="top"><span class="bank">FOMC</span><span class="r">3.75%</span></div><div class="next">next decision &middot; 29 Jul</div></div>
+            <div class="rate-card"><div class="top"><span class="bank">ECB</span><span class="r">2.40%</span></div><div class="next">next decision &middot; late Jul</div></div>
+            <div class="rate-card"><div class="top"><span class="bank">BoJ</span><span class="r">1.00%</span></div><div class="next">next decision &middot; 31 Jul</div></div>
+            <div class="rate-card"><div class="top"><span class="bank">RBA</span><span class="r">4.35%</span></div><div class="next">next decision &middot; 10&ndash;11 Aug</div></div>
+            <div class="rate-card"><div class="top"><span class="bank">MAS</span><span class="r">S$NEER</span></div><div class="next">band-based policy &middot; quarterly review, next late Jul</div></div>
+          </div>
+          <div class="sec-lbl" style="margin-top:18px;">Data releases</div>
+          <div id="releases"></div>
+        </div>
+      </section>
+
+      <!-- research -->
+      <section class="card">
+        <div class="card-h"><span>&#128240;</span><h2>Research</h2></div>
+        <div class="card-b">
+          <div class="rtabs" role="tablist" id="rtabs"></div>
+          <div id="stories"></div>
+        </div>
+      </section>
+
+      <!-- calendar -->
+      <section class="card">
+        <div class="card-h"><span>&#128197;</span><h2>Calendar</h2></div>
+        <div class="card-b" id="calendar"></div>
+      </section>
+    </div>
+
+    <!-- ============ RIGHT ============ -->
+    <div class="col">
+
+      <!-- fx -->
+      <section class="card">
+        <div class="card-h"><span>&#128177;</span><h2>FX &mdash; SGD crosses</h2></div>
+        <div class="card-b">
+          <div class="fx-row"><span class="pair">SGD/USD</span><span class="rate">0.7743</span><span class="badge na">10 Jul</span></div>
+          <p class="fx-note">USD/SGD 1.2915 &middot; Fed H.10 / Yahoo Finance</p>
+          <div class="fx-row"><span class="pair">SGD/AUD</span><span class="rate">1.1165</span><span class="badge up">+0.3% est</span></div>
+          <p class="fx-note">Derived cross &middot; AUD/USD 0.6935 (13 Jul) near 3-month lows &mdash; AUD weakness keeps the cross bid</p>
+          <div class="sec-lbl" style="margin-top:14px;">Daily commentary &middot; 14 Jul</div>
+          <div class="commentary">
+            <b>Risk-off into CPI week.</b> Washington&rsquo;s reinstated blockade on Iranian shipping through the Strait of Hormuz lifted Brent ~3.7% to US$78.85 and pushed the US 10-year yield to 4.60%. The Seoul chip rout (SK&nbsp;Hynix &minus;12.7%, Samsung &minus;10.7%) is dragging <b>KOSPI</b>, while <b>AUD</b> sits near three-month lows around US$0.6935, keeping SGD/AUD near 1.12. <b>USD/SGD</b> holds ~1.29 ahead of Wednesday&rsquo;s US CPI and China Q2 GDP.
+          </div>
+        </div>
+      </section>
+
+      <!-- earnings & exdiv -->
+      <section class="card">
+        <div class="card-h"><span>&#128198;</span><h2>Earnings &amp; Ex-Div</h2></div>
+        <div class="card-b">
+          <div class="sec-lbl">Upcoming earnings</div>
+          <div id="earnings"></div>
+          <div class="sec-lbl" style="margin-top:16px;">Ex-dividend dates</div>
+          <div class="empty">No ex-div dates could be confirmed for this snapshot &mdash; the previous list was placeholder data. Ask Claude to refresh with sourced dates.</div>
+        </div>
+      </section>
+
+      <!-- portfolio -->
+      <section class="card">
+        <div class="card-h"><span>&#128188;</span><h2>Portfolio</h2><span class="tag">sample holdings</span></div>
+        <div class="card-b">
+          <div class="tiles">
+            <div class="tile"><div class="k">Market value</div><div class="v">$108,278</div><div class="s">USD &middot; snapshot FX 10&ndash;13 Jul</div></div>
+            <div class="tile"><div class="k">Day move</div><div class="v d">&minus;$1,860</div><div class="s">&minus;1.7% est &middot; AAPL/DBS assumed flat</div></div>
+            <div class="tile"><div class="k">Top weight</div><div class="v">DBS 25%</div><div class="s">largest single position</div></div>
+            <div class="tile"><div class="k">Currency mix</div><div class="v">67 / 25 / 8</div><div class="s">USD / SGD / AUD, % of value</div></div>
+          </div>
+          <div class="sec-lbl">Holdings</div>
+          <div id="holdings"></div>
+          <p class="pf-note">Share counts are the sample set from the first build &mdash; tell Claude your real positions to make this card live. P/E, dividend income and beta need fundamental data and are omitted rather than guessed.</p>
+        </div>
+      </section>
+
+      <!-- crm -->
+      <section class="card">
+        <div class="card-h"><span>&#129309;</span><h2>CRM</h2><span class="tag">sample</span></div>
+        <div class="card-b" id="crm"></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- assistant -->
+  <section class="card assistant">
+    <div class="card-h"><span>&#129302;</span><h2>AI Assistant</h2></div>
+    <div class="card-b" id="prompts"></div>
+  </section>
+
+  <footer class="desk-foot">
+    Prices &amp; rates are a static snapshot as of 13&ndash;14 Jul 2026 close (Yahoo Finance, CNBC, Trading Economics, stockanalysis.com, Fed H.10).<br />
+    This page cannot fetch live data &mdash; ask Claude to refresh it. Not investment advice. &middot; Built for Vivian &middot; updated 14 Jul 2026
+  </footer>
+</div>
+
+<div class="toast" id="toast" role="status">Copied to clipboard</div>
+
+<script>
+/* =====================================================================
+   DATA SNAPSHOT — 13–14 Jul 2026
+   Single source of truth. To refresh the dashboard, update this block
+   (and the FX / macro / portfolio figures in the markup above).
+   Sources: Yahoo Finance, CNBC, Trading Economics, stockanalysis.com,
+   Investing.com, Fed H.10, RBA. null = not verifiable in this snapshot.
+   ===================================================================== */
+var SNAPSHOT_DATE = '13–14 Jul 2026';
+
+var TAPE = [
+  { lbl: 'S&P 500', val: '7,515.34', chg: -0.8 },
+  { lbl: 'NASDAQ',  val: '25,873',   chg: -1.6 },
+  { lbl: 'STI',     val: '5,469.29', chg: 0.7 },
+  { lbl: 'NIKKEI',  val: '67,243',   chg: -1.9 },
+  { lbl: 'HSI',     val: '24,175',   chg: 0.6 },
+  { lbl: 'ASX 200', val: '8,792.10', chg: -0.2 },
+  { lbl: 'KOSPI',   val: '7,347.37', chg: -1.7 },
+  { lbl: 'US10Y',   val: '4.60%',    chg: null, chgTxt: '+4 bp', dir: 1 },
+  { lbl: 'GOLD',    val: '4,001',    chg: -2.9 },
+  { lbl: 'BRENT',   val: '78.85',    chg: 3.7 },
+  { lbl: 'BTC',     val: '62,300',   chg: -2.8 }
+];
+
+var STOCKS = [
+  { t: 'NVDA',      n: 'NVIDIA',       px: '203.53',    ccy: 'US$', chg: -3.5,  sector: 'Semis',     ev: '26 Aug', evDate: '2026-08-26', tbc: false },
+  { t: 'TSM',       n: 'TSMC ADR',     px: '423.43',    ccy: 'US$', chg: -2.5,  sector: 'Semis',     ev: '16 Jul', evDate: '2026-07-16', tbc: false },
+  { t: '000660.KS', n: 'SK Hynix',     px: '1,843,000', ccy: '₩', chg: -12.7, sector: 'Semis',  ev: 'late Jul', evDate: null, tbc: true },
+  { t: '005930.KS', n: 'Samsung Elec', px: '254,500',   ccy: '₩', chg: -10.7, sector: 'Semis',  ev: 'late Jul', evDate: null, tbc: true },
+  { t: 'ASML',      n: 'ASML Holding', px: '1,800.00',  ccy: 'US$', chg: -3.2,  sector: 'Semi equip', ev: '15 Jul', evDate: '2026-07-15', tbc: false },
+  { t: 'AAPL',      n: 'Apple',        px: '317.31',    ccy: 'US$', chg: null,  sector: 'Tech',      ev: 'late Jul', evDate: null, tbc: true },
+  { t: 'D05.SI',    n: 'DBS Group',    px: '70.45',     ccy: 'S$',  chg: null,  sector: 'Banks',     ev: 'early Aug', evDate: null, tbc: true },
+  { t: 'BHP.AX',    n: 'BHP Group',    px: '57.98',     ccy: 'A$',  chg: -3.2,  sector: 'Materials', ev: 'Aug (FY)', evDate: null, tbc: true },
+  { t: '7203.T',    n: 'Toyota Motor', px: '2,823',     ccy: '¥', chg: null, asof: '10 Jul', sector: 'Autos', ev: 'early Aug', evDate: null, tbc: true }
+];
+
+var HOLDINGS = [
+  { t: 'D05.SI', n: 'DBS Group',    sh: '500 sh', w: 25, chg: null },
+  { t: 'AAPL',   n: 'Apple',        sh: '70 sh',  w: 21, chg: null },
+  { t: 'ASML',   n: 'ASML Holding', sh: '12 sh',  w: 20, chg: -3.2 },
+  { t: 'TSM',    n: 'TSMC ADR',     sh: '40 sh',  w: 16, chg: -2.5 },
+  { t: 'NVDA',   n: 'NVIDIA',       sh: '60 sh',  w: 11, chg: -3.5 },
+  { t: 'BHP.AX', n: 'BHP Group',    sh: '200 sh', w: 8,  chg: -3.2 }
+];
+
+var RELEASES = [
+  { k: 'GDP', b: 'China GDP (Q2)',       s: 'NBS',            when: 'Wed 15 Jul' },
+  { k: 'CPI', b: 'US CPI (Jun)',         s: 'BLS',            when: 'Wed 15 Jul' },
+  { k: 'CPI', b: 'Singapore CPI (Jun)',  s: 'SingStat',       when: 'Thu 23 Jul' },
+  { k: 'NFP', b: 'US Nonfarm payrolls',  s: 'BLS · Jul', when: 'Fri 07 Aug' }
+];
+
+var CAL = [
+  { d: '2026-07-15', b: 'China GDP Q2 + US CPI (Jun)', s: 'Data', kind: 'central' },
+  { d: '2026-07-15', b: 'ASML Q2 earnings',            s: 'Cons. EPS US$7.94 / rev US$10.3B', kind: 'earnings' },
+  { d: '2026-07-16', b: 'TSMC Q2 earnings',            s: 'AI capex read-through', kind: 'earnings' },
+  { d: '2026-07-23', b: 'Singapore CPI (Jun)',         s: 'Data', kind: 'central' },
+  { d: '2026-07-29', b: 'FOMC decision',               s: 'Central banks', kind: 'central' },
+  { d: '2026-07-31', b: 'BoJ decision',                s: 'Central banks', kind: 'central' },
+  { d: '2026-08-07', b: 'US nonfarm payrolls (Jul)',   s: 'Data', kind: 'central' },
+  { d: '2026-08-10', b: 'RBA decision',                s: 'Central banks · 10–11 Aug', kind: 'central' },
+  { d: '2026-08-26', b: 'NVDA earnings',               s: 'After US close', kind: 'earnings' }
+];
+
+var RESEARCH = {
+  'AI & Semis': [
+    { b: 'Chip rout deepens in Seoul — SK Hynix −12.7%, Samsung −10.7%', src: 'CNBC', when: '14 Jul' },
+    { b: 'ASML reports Q2 tomorrow; street at EPS US$7.94 on US$10.3B revenue', src: 'Yahoo Finance', when: '13 Jul' },
+    { b: 'TSMC Q2 lands Thursday — which stocks win or lose on the AI capex read', src: '24/7 Wall St.', when: '13 Jul' },
+    { b: 'Eased UAE export controls lifted NVDA ~4% late last week', src: 'Zacks', when: '10 Jul' }
+  ],
+  'China': [
+    { b: 'Q2 GDP due Wednesday 15 Jul — the week’s biggest China print', src: 'NBS calendar', when: '14 Jul' },
+    { b: 'HSI +0.6% to 24,175, bucking the regional tech selloff', src: 'Market data', when: '14 Jul' }
+  ],
+  'Japan': [
+    { b: 'Nikkei −1.9% to 67,243 as semis drag; BoJ decision looms 31 Jul (rate 1.00%)', src: 'Market data', when: '14 Jul' },
+    { b: 'Toyota around ¥2,823 (10 Jul); FY results expected early Aug', src: 'Trading Economics', when: '10 Jul' }
+  ],
+  'Energy': [
+    { b: 'US reinstates Strait of Hormuz shipping blockade — Brent +3.7% to US$78.85', src: 'Yahoo Finance', when: '13 Jul' },
+    { b: 'Gold −2.9% to US$4,001 as the 10-year yield jumps to 4.60%', src: 'Trading Economics', when: '13 Jul' }
+  ]
+};
+
+var CRM = [
+  { i: 'JO', c: '#4653c9', n: 'James Okafor', r: 'PM, Meridian Capital', met: 'Lunch · 8 Jul', task: 'Send AI deck',   due: '2026-07-16' },
+  { i: 'AT', c: '#1d7a46', n: 'Aiko Tanaka',  r: 'IR, Toyota',           met: 'Call · 2 Jul',  task: 'Q2 follow-up',  due: '2026-07-19' },
+  { i: 'RM', c: '#c43c42', n: 'Raj Menon',    r: 'Head of FX, DBS',      met: 'Coffee · 30 Jun', task: 'SGD view note', due: '2026-07-08' },
+  { i: 'SL', c: '#b25d9a', n: 'Sofia Lund',   r: 'Analyst, ASML',        met: 'Conf · 26 Jun',  task: 'Intro to team', due: '2026-07-23' }
+];
+
+var PROMPTS = [
+  'Why is SK Hynix down 12%?',
+  'Prepare tomorrow’s morning note.',
+  'Summarize today’s semis headlines.',
+  'Which of my holdings report earnings this week?',
+  'What does the Hormuz blockade mean for Brent and SGD?',
+  'Refresh this dashboard with today’s prices.'
+];
+
+/* ================= helpers ================= */
+function el(tag, cls, html) {
+  var e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (html != null) e.innerHTML = html;
+  return e;
+}
+function esc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function chgBadge(chg) {
+  if (chg == null) return '<span class="badge na" title="Not verifiable in this snapshot">—</span>';
+  var cls = chg > 0 ? 'up' : chg < 0 ? 'down' : 'na';
+  var sign = chg > 0 ? '+' : chg < 0 ? '−' : '';
+  return '<span class="badge ' + cls + '">' + sign + Math.abs(chg).toFixed(1) + '%</span>';
+}
+function daysUntil(iso) {
+  var now = new Date();
+  var today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  var p = iso.split('-');
+  var target = Date.UTC(+p[0], +p[1] - 1, +p[2]);
+  return Math.round((target - today) / 86400000);
+}
+function dueChip(iso) {
+  var d = daysUntil(iso);
+  if (d < 0)  return '<span class="chip-due late">OVERDUE ' + (-d) + 'D</span>';
+  if (d === 0) return '<span class="chip-due ok">TODAY</span>';
+  return '<span class="chip-due ok">IN ' + d + 'D</span>';
+}
+function inDays(iso) {
+  if (!iso) return '';
+  var d = daysUntil(iso);
+  if (d < 0) return 'passed';
+  if (d === 0) return 'today';
+  return 'in ' + d + 'd';
+}
+
+/* ================= theme ================= */
+(function () {
+  var root = document.documentElement;
+  var saved = null;
+  try { saved = localStorage.getItem('vd-theme'); } catch (e) {}
+  if (saved === 'light' || saved === 'dark') root.dataset.theme = saved;
+  document.getElementById('themeBtn').addEventListener('click', function () {
+    var dark = root.dataset.theme
+      ? root.dataset.theme === 'dark'
+      : matchMedia('(prefers-color-scheme: dark)').matches;
+    var next = dark ? 'light' : 'dark';
+    root.dataset.theme = next;
+    try { localStorage.setItem('vd-theme', next); } catch (e) {}
+  });
+})();
+
+/* ================= clock & market status ================= */
+(function () {
+  var tEl = document.getElementById('clockT'), dEl = document.getElementById('clockD');
+  var pill = document.getElementById('mktPill'), lbl = document.getElementById('mktLbl');
+  var tf = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Singapore', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  var df = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Singapore', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  var pf = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Singapore', hour: 'numeric', minute: 'numeric', weekday: 'short', hour12: false });
+  function tick() {
+    var now = new Date();
+    tEl.textContent = tf.format(now);
+    dEl.textContent = df.format(now) + ' · SGT';
+    var parts = {};
+    pf.formatToParts(now).forEach(function (p) { parts[p.type] = p.value; });
+    var mins = parseInt(parts.hour, 10) * 60 + parseInt(parts.minute, 10);
+    var wd = parts.weekday;
+    var weekday = wd !== 'Sat' && wd !== 'Sun';
+    // SGX: 09:00–12:00, 13:00–17:00 SGT
+    var open = weekday && ((mins >= 540 && mins < 720) || (mins >= 780 && mins < 1020));
+    var lunch = weekday && mins >= 720 && mins < 780;
+    pill.className = 'pill ' + (open ? 'open' : 'closed');
+    lbl.textContent = open ? 'SG market open' : (lunch ? 'SG midday break' : 'SG market closed');
+  }
+  tick();
+  setInterval(tick, 1000);
+})();
+
+/* ================= tape ================= */
+(function () {
+  var tape = document.getElementById('tape');
+  TAPE.forEach(function (x) {
+    var chgHtml;
+    if (x.chg == null && x.chgTxt) {
+      chgHtml = '<div class="chg ' + (x.dir > 0 ? 'u' : 'd') + '">' + x.chgTxt + '</div>';
+    } else if (x.chg == null) {
+      chgHtml = '<div class="chg flat">—</div>';
+    } else {
+      var cls = x.chg > 0 ? 'u' : x.chg < 0 ? 'd' : 'flat';
+      var sign = x.chg > 0 ? '+' : x.chg < 0 ? '−' : '';
+      chgHtml = '<div class="chg ' + cls + '">' + sign + Math.abs(x.chg).toFixed(1) + '%</div>';
+    }
+    tape.appendChild(el('div', null, '<div class="lbl">' + x.lbl + '</div><div class="val">' + x.val + '</div>' + chgHtml));
+  });
+})();
+
+/* ================= watchlist ================= */
+var wlState = { removed: [], added: [] };
+try {
+  var s = JSON.parse(localStorage.getItem('vd-watchlist-v2') || 'null');
+  if (s && s.removed && s.added) wlState = s;
+} catch (e) {}
+function saveWl() { try { localStorage.setItem('vd-watchlist-v2', JSON.stringify(wlState)); } catch (e) {} }
+
+function renderWatchlist() {
+  var body = document.getElementById('wlBody');
+  body.innerHTML = '';
+  var visible = STOCKS.filter(function (x) { return wlState.removed.indexOf(x.t) === -1; });
+
+  visible.forEach(function (x) {
+    var tr = el('tr');
+    var evTxt = x.tbc
+      ? esc(x.ev) + ' <span class="badge warn">TBC</span>'
+      : esc(x.ev) + (x.evDate ? ' <span class="nm">· ' + inDays(x.evDate) + '</span>' : '');
+    tr.innerHTML =
+      '<td><span class="tk">' + esc(x.t) + '</span><br /><span class="nm">' + esc(x.n) + '</span></td>' +
+      '<td><span class="px">' + x.ccy + x.px + '</span>' + (x.asof ? '<span class="asof">as of ' + x.asof + '</span>' : '') + '</td>' +
+      '<td>' + chgBadge(x.chg) + '</td>' +
+      '<td class="ev">' + evTxt + '</td>' +
+      '<td><button class="rm" aria-label="Remove ' + esc(x.t) + '" data-t="' + esc(x.t) + '">&#10005;</button></td>';
+    body.appendChild(tr);
+  });
+
+  wlState.added.forEach(function (a) {
+    var tr = el('tr');
+    tr.innerHTML =
+      '<td><span class="tk">' + esc(a) + '</span><br /><span class="nm">added by you</span></td>' +
+      '<td><span class="px flat">—</span></td>' +
+      '<td><span class="badge warn">awaiting refresh</span></td>' +
+      '<td class="ev">—</td>' +
+      '<td><button class="rm" aria-label="Remove ' + esc(a) + '" data-t="' + esc(a) + '" data-added="1">&#10005;</button></td>';
+    body.appendChild(tr);
+  });
+
+  document.getElementById('wlCount').textContent = visible.length + wlState.added.length;
+
+  body.querySelectorAll('.rm').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var t = b.getAttribute('data-t');
+      if (b.getAttribute('data-added')) {
+        wlState.added = wlState.added.filter(function (x) { return x !== t; });
+      } else {
+        wlState.removed.push(t);
+      }
+      saveWl();
+      renderWatchlist();
+      renderMovers();
+    });
+  });
+}
+
+document.getElementById('addForm').addEventListener('submit', function (ev) {
+  ev.preventDefault();
+  var inp = document.getElementById('addInput');
+  var t = inp.value.trim().toUpperCase();
+  if (!t) return;
+  var isDefault = STOCKS.some(function (x) { return x.t === t; });
+  if (isDefault) {
+    wlState.removed = wlState.removed.filter(function (x) { return x !== t; });
+  } else if (wlState.added.indexOf(t) === -1) {
+    wlState.added.push(t);
+  }
+  inp.value = '';
+  saveWl();
+  renderWatchlist();
+  renderMovers();
+});
+
+/* ================= movers ================= */
+function renderMovers() {
+  var box = document.getElementById('movers');
+  box.innerHTML = '';
+  var movers = STOCKS.filter(function (x) {
+    return wlState.removed.indexOf(x.t) === -1 && x.chg != null && Math.abs(x.chg) >= 5;
+  });
+  document.getElementById('mvCount').textContent = movers.length;
+  if (!movers.length) {
+    box.appendChild(el('div', 'empty', 'No watchlist name moved ±5% in this snapshot.'));
+    return;
+  }
+  movers.sort(function (a, b) { return Math.abs(b.chg) - Math.abs(a.chg); });
+  movers.forEach(function (x) {
+    box.appendChild(el('div', 'mv',
+      '<span class="tk">' + esc(x.t) + '</span>' +
+      '<span class="who"><b>' + esc(x.n) + '</b><span>' + esc(x.sector) + '</span></span>' +
+      chgBadge(x.chg)));
+  });
+}
+
+renderWatchlist();
+renderMovers();
+
+/* ================= earnings list ================= */
+(function () {
+  var box = document.getElementById('earnings');
+  var items = STOCKS.slice().sort(function (a, b) {
+    var ad = a.evDate || '9999', bd = b.evDate || '9999';
+    return ad < bd ? -1 : ad > bd ? 1 : 0;
+  });
+  items.forEach(function (x) {
+    var when = x.tbc
+      ? '<span class="badge warn">' + esc(x.ev) + ' · TBC</span>'
+      : '<span class="num" style="font-size:12px;color:var(--ink-2);">' + esc(x.ev) + ' · ' + inDays(x.evDate) + '</span>';
+    box.appendChild(el('div', 'mv',
+      '<span class="tk">' + esc(x.t) + '</span>' +
+      '<span class="who"><b>' + esc(x.n) + '</b></span>' + when));
+  });
+})();
+
+/* ================= releases ================= */
+(function () {
+  var box = document.getElementById('releases');
+  RELEASES.forEach(function (r) {
+    box.appendChild(el('div', 'rel',
+      '<span class="k">' + esc(r.k) + '</span>' +
+      '<span class="what"><b>' + esc(r.b) + '</b><span>' + esc(r.s) + '</span></span>' +
+      '<span class="when">' + esc(r.when) + '</span>'));
+  });
+})();
+
+/* ================= research tabs ================= */
+(function () {
+  var tabs = document.getElementById('rtabs');
+  var stories = document.getElementById('stories');
+  var names = Object.keys(RESEARCH);
+  function show(name) {
+    stories.innerHTML = '';
+    RESEARCH[name].forEach(function (s) {
+      stories.appendChild(el('div', 'story',
+        '<b>' + esc(s.b) + '</b><div class="src"><em>' + esc(s.src) + '</em> · ' + esc(s.when) + '</div>'));
+    });
+    tabs.querySelectorAll('.rtab').forEach(function (t) {
+      t.setAttribute('aria-selected', t.textContent === name ? 'true' : 'false');
+    });
+  }
+  names.forEach(function (name, i) {
+    var b = el('button', 'rtab', esc(name));
+    b.setAttribute('role', 'tab');
+    b.setAttribute('aria-selected', i === 0 ? 'true' : 'false');
+    b.addEventListener('click', function () { show(name); });
+    tabs.appendChild(b);
+  });
+  show(names[0]);
+})();
+
+/* ================= holdings ================= */
+(function () {
+  var box = document.getElementById('holdings');
+  HOLDINGS.forEach(function (h) {
+    box.appendChild(el('div', 'hold',
+      '<div class="top"><span class="tk">' + esc(h.t) + '</span><span class="nm">' + esc(h.n) + ' · ' + esc(h.sh) + '</span>' +
+      '<span class="right">' + chgBadge(h.chg) + '<div class="w">' + h.w + '%</div></span></div>' +
+      '<div class="bar"><i style="width:' + h.w + '%"></i></div>'));
+  });
+})();
+
+/* ================= crm ================= */
+(function () {
+  var box = document.getElementById('crm');
+  CRM.forEach(function (p) {
+    box.appendChild(el('div', 'person',
+      '<span class="avatar" style="background:' + p.c + '">' + esc(p.i) + '</span>' +
+      '<span class="info"><b>' + esc(p.n) + '</b><span class="role">' + esc(p.r) + '</span><div class="met">' + esc(p.met) + '</div></span>' +
+      '<span class="due">' + dueChip(p.due) + '<div class="task">' + esc(p.task) + '</div></span>'));
+  });
+})();
+
+/* ================= calendar ================= */
+(function () {
+  var box = document.getElementById('calendar');
+  var mnames = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+  CAL.forEach(function (c) {
+    var p = c.d.split('-');
+    box.appendChild(el('div', 'cal-day',
+      '<span class="cal-date"><div class="dd">' + (+p[2]) + '</div><div class="mm">' + mnames[+p[1] - 1] + '</div></span>' +
+      '<span class="cal-what"><b>' + esc(c.b) + '</b><span>' + esc(c.s) + ' · ' + inDays(c.d) + '</span></span>' +
+      '<span class="cal-kind"><span class="kind ' + c.kind + '">' + (c.kind === 'central' ? 'CENTRAL' : 'EARNINGS') + '</span></span>'));
+  });
+})();
+
+/* ================= prompts ================= */
+(function () {
+  var box = document.getElementById('prompts');
+  var toast = document.getElementById('toast');
+  var toastTimer = null;
+  PROMPTS.forEach(function (p) {
+    var b = el('button', 'prompt-row',
+      '<span class="arrow">&#9654;</span><span>' + esc(p) + '</span><span class="copy">copy</span>');
+    b.addEventListener('click', function () {
+      function done() {
+        toast.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { toast.classList.remove('show'); }, 1600);
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(p).then(done, done);
+      } else { done(); }
+    });
+    box.appendChild(b);
+  });
+  box.appendChild(el('p', 'hint',
+    'Prompts to bring to Claude — clicking copies the question so you can paste it into a chat. This dashboard can’t run live queries on its own.'));
+})();
+</script>
