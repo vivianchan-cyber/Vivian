@@ -373,7 +373,7 @@
             <input id="addInput" placeholder="Add ticker &mdash; e.g. NVDA, D05.SI, 7203.T" aria-label="Add ticker" />
             <button class="btn" type="submit">Add</button>
           </form>
-          <p class="hint">Your list is saved in this browser. Prices update live where the data plan covers the symbol; anything uncovered shows its last snapshot. A ticker you add needs a mapping in <code>api/quotes.js</code> before it can go live.</p>
+          <p class="hint">Your list is saved in this browser. Add any ticker in Yahoo Finance format &mdash; US symbols plain (<code>NVDA</code>), others with an exchange suffix (<code>0358.HK</code>, <code>D05.SI</code>, <code>7203.T</code>). It goes live within a few seconds.</p>
           <div class="wl-scroll">
             <table class="wl">
               <thead><tr><th>TICKER</th><th>LAST</th><th>CHG%</th><th>NEXT RESULTS</th><th></th></tr></thead>
@@ -697,6 +697,17 @@ function renderTape() {
 }
 renderTape();
 
+/* ============ shared live-quote store & formatting ============ */
+var LIVE = {}; // symbol -> latest quote {ok, price, changePct, currency, exchange}
+var deskPoll = null; // set by the live engine; lets the Add button refresh immediately
+var CUR_PREFIX = { USD: 'US$', HKD: 'HK$', SGD: 'S$', AUD: 'A$', JPY: '¥', KRW: '₩', EUR: '€', GBP: '£', CNY: '¥', TWD: 'NT$' };
+var ZERO_DP = { JPY: 1, KRW: 1, HKD: 0, CLP: 1, HUF: 1, IDR: 1, VND: 1 }; // currencies we show with no decimals
+function curPrefix(c) { return c && CUR_PREFIX[c] ? CUR_PREFIX[c] : (c ? c + ' ' : ''); }
+function fmtPrice(price, currency) {
+  var d = (currency === 'JPY' || currency === 'KRW') ? 0 : (price >= 1000 ? (price >= 100000 ? 0 : 2) : 2);
+  return price.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+}
+
 /* ================= watchlist ================= */
 var wlState = { removed: [], added: [] };
 try {
@@ -725,12 +736,27 @@ function renderWatchlist() {
   });
 
   wlState.added.forEach(function (a) {
+    var q = LIVE[a];
     var tr = el('tr');
+    var label, pxCell, chgCell;
+    if (q && q.ok) {
+      label = q.exchange ? esc(q.exchange) : 'added by you';
+      pxCell = '<span class="px">' + curPrefix(q.currency) + fmtPrice(q.price, q.currency) + '</span>';
+      chgCell = chgBadge(q.changePct == null ? null : Math.round(q.changePct * 10) / 10);
+    } else if (q && !q.ok) {
+      label = 'added by you';
+      pxCell = '<span class="px flat">&mdash;</span>';
+      chgCell = '<span class="badge na" title="' + esc(q.reason || 'symbol not found') + '">not found</span>';
+    } else {
+      label = 'added by you';
+      pxCell = '<span class="px flat">&mdash;</span>';
+      chgCell = '<span class="badge warn">loading&hellip;</span>';
+    }
     tr.innerHTML =
-      '<td><span class="tk">' + esc(a) + '</span><br /><span class="nm">added by you</span></td>' +
-      '<td><span class="px flat">—</span></td>' +
-      '<td><span class="badge warn">awaiting refresh</span></td>' +
-      '<td class="ev">—</td>' +
+      '<td><span class="tk">' + esc(a) + '</span><br /><span class="nm">' + label + '</span></td>' +
+      '<td>' + pxCell + '</td>' +
+      '<td>' + chgCell + '</td>' +
+      '<td class="ev">&mdash;</td>' +
       '<td><button class="rm" aria-label="Remove ' + esc(a) + '" data-t="' + esc(a) + '" data-added="1">&#10005;</button></td>';
     body.appendChild(tr);
   });
@@ -767,6 +793,7 @@ document.getElementById('addForm').addEventListener('submit', function (ev) {
   saveWl();
   renderWatchlist();
   renderMovers();
+  if (deskPoll) deskPoll(); // fetch the new ticker right away
 });
 
 /* ================= movers ================= */
@@ -938,7 +965,7 @@ renderMovers();
 
   function merge(quotes) {
     var byId = {};
-    quotes.forEach(function (q) { byId[q.symbol] = q; });
+    quotes.forEach(function (q) { byId[q.symbol] = q; LIVE[q.symbol] = q; });
     var live = 0, requested = 0;
 
     TAPE.forEach(function (x) {
@@ -971,8 +998,16 @@ renderMovers();
     return { live: live, requested: requested };
   }
 
+  function symbolList() {
+    var set = {};
+    TAPE.forEach(function (x) { if (x.sym) set[x.sym] = 1; });
+    STOCKS.forEach(function (x) { if (wlState.removed.indexOf(x.t) === -1) set[x.t] = 1; });
+    wlState.added.forEach(function (a) { set[a] = 1; });
+    return Object.keys(set);
+  }
+
   function poll() {
-    fetch('/api/quotes')
+    fetch('/api/quotes?symbols=' + encodeURIComponent(symbolList().join(',')))
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (data.reason === 'no_api_key') {
@@ -997,6 +1032,7 @@ renderMovers();
       });
   }
 
+  deskPoll = poll;
   poll();
   setInterval(poll, REFRESH_MS);
 })();

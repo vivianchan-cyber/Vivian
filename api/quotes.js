@@ -52,13 +52,15 @@ function parseYahoo(display, json) {
     price: price,
     changePct: changePct,
     currency: meta.currency || null,
+    exchange: meta.fullExchangeName || meta.exchangeName || null,
     marketOpen: meta.marketState ? meta.marketState === 'REGULAR' : undefined
   };
 }
 
 async function fetchOne(display) {
-  const yf = YF_MAP[display];
-  if (!yf) return { symbol: display, ok: false, reason: 'unmapped' };
+  // Known display keys use their mapped Yahoo ticker; anything the user typed
+  // (e.g. "0358.HK") is passed straight through — Yahoo accepts most tickers.
+  const yf = YF_MAP[display] || display;
   const url = 'https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(yf);
   try {
     const r = await fetch(url, { headers: { 'User-Agent': UA, 'Accept': 'application/json' } });
