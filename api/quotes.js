@@ -1,103 +1,81 @@
 // api/quotes.js — serverless price proxy for Vivian's Desk (Vercel Node function)
 //
-// Why this file exists: an API key must never sit in front-end code (anyone could
-// read it and run up your bill). The browser calls THIS endpoint; this endpoint
-// adds the secret key and calls the data provider. The key stays on the server.
+// Source: Yahoo Finance public chart endpoint (v8). No API key required, and it
+// covers the whole board — US + global equities, indices, FX, commodities, crypto.
+// The browser calls THIS endpoint; the server fetches upstream, so there are no
+// CORS issues and no secret to leak.
 //
-// Provider: Twelve Data (https://twelvedata.com) — one key covers US + global
-// exchanges, FX, and crypto. Swap providers by re-implementing fetchFromProvider().
+// Response contract (unchanged, so the front-end needs no rewrite):
+//   { live, fetchedAt, cacheSeconds, quotes: [{ symbol, ok, price, changePct, currency }] }
+// `symbol` is always our DISPLAY key (e.g. 'NVDA', 'SPX', '000660.KS'), not the
+// Yahoo ticker — that's what the front-end matches on.
 //
-// Env vars (set in Vercel → Project → Settings → Environment Variables):
-//   TWELVEDATA_API_KEY   your key  (required for live data)
-//   QUOTE_CACHE_SECONDS  optional, default 60 — how long the server reuses a
-//                        response before hitting the provider again. Higher =
-//                        fewer API credits burned. Raise it if you hit limits.
+// Optional env var:
+//   QUOTE_CACHE_SECONDS  seconds the server reuses a response (default 60).
 
-const PROVIDER_URL = 'https://api.twelvedata.com/quote';
 const CACHE_SECONDS = parseInt(process.env.QUOTE_CACHE_SECONDS || '60', 10);
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36';
 
-// Map our display tickers to the provider's symbol + exchange.
-// Twelve Data resolves most US symbols bare; non-US needs an explicit exchange.
-// Index / commodity coverage varies by plan — anything the provider can't return
-// is reported back as unavailable and the UI falls back to its snapshot value.
-const SYMBOL_MAP = {
-  // US equities
-  NVDA: { symbol: 'NVDA' },
-  AAPL: { symbol: 'AAPL' },
-  ASML: { symbol: 'ASML' },
-  TSM:  { symbol: 'TSM' },
-  // Global equities (exchange required)
-  'D05.SI':    { symbol: 'D05',    exchange: 'SGX' },
-  '000660.KS': { symbol: '000660', exchange: 'KRX' },
-  '005930.KS': { symbol: '005930', exchange: 'KRX' },
-  '7203.T':    { symbol: '7203',   exchange: 'TSE' },
-  'BHP.AX':    { symbol: 'BHP',    exchange: 'ASX' },
-  // FX & crypto (widely available even on free tiers)
-  'SGD/USD':   { symbol: 'SGD/USD' },
-  'AUD/USD':   { symbol: 'AUD/USD' },
-  'BTC/USD':   { symbol: 'BTC/USD' },
-  // Indices & commodities (often paid-tier only — will gracefully degrade)
-  SPX:  { symbol: 'SPX' },
-  IXIC: { symbol: 'IXIC' },
-  STI:  { symbol: 'STI' },
-  N225: { symbol: 'N225' },
-  HSI:  { symbol: 'HSI' },
-  XJO:  { symbol: 'XJO' },
-  KS11: { symbol: 'KS11' },
-  'XAU/USD': { symbol: 'XAU/USD' }
+// Display key (what the front-end sends) → Yahoo Finance ticker.
+// Add a row here to make a new watchlist ticker go live.
+const YF_MAP = {
+  // Indices (tape)
+  SPX: '^GSPC', IXIC: '^IXIC', STI: '^STI', N225: '^N225',
+  HSI: '^HSI', XJO: '^AXJO', KS11: '^KS11',
+  // Commodities & crypto (tape)
+  'XAU/USD': 'GC=F', BRENT: 'BZ=F', 'BTC/USD': 'BTC-USD',
+  // Equities (watchlist) — most are already Yahoo-format
+  NVDA: 'NVDA', TSM: 'TSM', ASML: 'ASML', AAPL: 'AAPL',
+  '000660.KS': '000660.KS', '005930.KS': '005930.KS',
+  'D05.SI': 'D05.SI', 'BHP.AX': 'BHP.AX', '7203.T': '7203.T'
 };
 
-// Simple in-memory cache. Persists while the serverless instance stays warm,
-// which is enough to shield the provider from repeated browser polls.
-let cache = { at: 0, key: '', data: null };
+// Extract our normalized quote from a Yahoo chart payload. Exported for tests.
+function parseYahoo(display, json) {
+  const meta = json && json.chart && json.chart.result &&
+               json.chart.result[0] && json.chart.result[0].meta;
+  if (!meta) {
+    const err = json && json.chart && json.chart.error;
+    return { symbol: display, ok: false, reason: (err && err.description) || 'no data' };
+  }
+  const price = meta.regularMarketPrice;
+  const prev = meta.previousClose != null ? meta.previousClose : meta.chartPreviousClose;
+  if (typeof price !== 'number' || !isFinite(price)) {
+    return { symbol: display, ok: false, reason: 'no price' };
+  }
+  const changePct = (typeof prev === 'number' && prev !== 0)
+    ? ((price - prev) / prev) * 100
+    : null;
+  return {
+    symbol: display,
+    ok: true,
+    price: price,
+    changePct: changePct,
+    currency: meta.currency || null,
+    marketOpen: meta.marketState ? meta.marketState === 'REGULAR' : undefined
+  };
+}
 
-async function fetchOne(display, apiKey) {
-  const map = SYMBOL_MAP[display];
-  if (!map) return { symbol: display, ok: false, reason: 'unmapped' };
-
-  const params = new URLSearchParams({ symbol: map.symbol, apikey: apiKey });
-  if (map.exchange) params.set('exchange', map.exchange);
-
+async function fetchOne(display) {
+  const yf = YF_MAP[display];
+  if (!yf) return { symbol: display, ok: false, reason: 'unmapped' };
+  const url = 'https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(yf);
   try {
-    const r = await fetch(`${PROVIDER_URL}?${params.toString()}`);
-    const j = await r.json();
-    // Provider signals errors with { status: 'error', message } or code fields.
-    if (j.status === 'error' || j.code) {
-      return { symbol: display, ok: false, reason: j.message || 'provider error' };
-    }
-    const price = parseFloat(j.close);
-    const pct = parseFloat(j.percent_change);
-    if (!isFinite(price)) return { symbol: display, ok: false, reason: 'no price' };
-    return {
-      symbol: display,
-      ok: true,
-      price,
-      changePct: isFinite(pct) ? pct : null,
-      currency: j.currency || null,
-      marketOpen: j.is_market_open === true,
-      name: j.name || null
-    };
+    const r = await fetch(url, { headers: { 'User-Agent': UA, 'Accept': 'application/json' } });
+    if (!r.ok) return { symbol: display, ok: false, reason: 'HTTP ' + r.status };
+    const json = await r.json();
+    return parseYahoo(display, json);
   } catch (e) {
     return { symbol: display, ok: false, reason: 'fetch failed' };
   }
 }
 
+let cache = { at: 0, key: '', data: null };
+
 module.exports = async (req, res) => {
-  const apiKey = process.env.TWELVEDATA_API_KEY;
   const requested = String((req.query && req.query.symbols) || '')
     .split(',').map(s => s.trim()).filter(Boolean);
-  const symbols = requested.length ? requested : Object.keys(SYMBOL_MAP);
-
-  // No key configured yet → tell the UI to stay on its snapshot rather than error.
-  if (!apiKey) {
-    res.setHeader('Cache-Control', 'no-store');
-    return res.status(200).json({
-      live: false,
-      reason: 'no_api_key',
-      message: 'Set TWELVEDATA_API_KEY in Vercel to enable live data.',
-      quotes: []
-    });
-  }
+  const symbols = requested.length ? requested : Object.keys(YF_MAP);
 
   const cacheKey = symbols.join(',');
   const now = Date.now();
@@ -107,9 +85,10 @@ module.exports = async (req, res) => {
     return res.status(200).json(cache.data);
   }
 
-  const results = await Promise.all(symbols.map(s => fetchOne(s, apiKey)));
+  const results = await Promise.all(symbols.map(fetchOne));
   const payload = {
     live: true,
+    source: 'yahoo',
     fetchedAt: new Date().toISOString(),
     cacheSeconds: CACHE_SECONDS,
     quotes: results
@@ -120,3 +99,6 @@ module.exports = async (req, res) => {
   res.setHeader('Cache-Control', `public, max-age=${CACHE_SECONDS}`);
   return res.status(200).json(payload);
 };
+
+module.exports.parseYahoo = parseYahoo;
+module.exports.YF_MAP = YF_MAP;
