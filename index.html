@@ -832,17 +832,27 @@ function moveReason(t, chg) {
 
 // Sub-line for a mover/spike row: the live headline (linked, with publisher)
 // plus a small fallback/context line, or just the fallback text if no headline.
+function relTime(unixSec) {
+  if (!unixSec) return '';
+  var diff = Date.now() / 1000 - unixSec;
+  if (diff < 3600) return Math.max(1, Math.round(diff / 60)) + 'm ago';
+  if (diff < 86400) return Math.round(diff / 3600) + 'h ago';
+  return Math.round(diff / 86400) + 'd ago';
+}
 function newsBlock(t, fallbackText) {
   var q = LIVE[t];
   var hl = q && q.headline;
   if (hl && hl.title) {
-    var pub = hl.publisher ? ' <span class="src2" style="color:var(--muted)">· ' + esc(hl.publisher) + '</span>' : '';
+    var bits = [];
+    if (hl.publisher) bits.push(esc(hl.publisher));
+    if (hl.time) bits.push(relTime(hl.time));
+    var meta = bits.length ? ' <span class="src2" style="color:var(--muted)">· ' + bits.join(' · ') + '</span>' : '';
     var head = hl.link
       ? '<a class="hl" href="' + esc(hl.link) + '" target="_blank" rel="noopener">' + esc(hl.title) + '</a>'
       : '<span class="hl">' + esc(hl.title) + '</span>';
-    return head + pub + '<span class="reason">' + esc(fallbackText) + '</span>';
+    return head + meta + '<span class="reason">' + esc(fallbackText) + '</span>';
   }
-  return '<span>' + esc(fallbackText) + '</span>';
+  return '<span>' + esc(fallbackText) + ' <span style="color:var(--muted)">· no same-day news</span></span>';
 }
 
 function collectMovers() {

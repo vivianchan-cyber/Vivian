@@ -99,6 +99,28 @@ async function resolveName(display) {
 const NEWS_TTL = 10 * 60 * 1000;
 const MOVER_PCT = 5;
 const SPIKE_RATIO = 1.5; // mirror the front-end volume threshold
+const NEWS_MAX_AGE = 36 * 3600; // seconds — only "on the day" news counts
+
+// Pick the best headline for a mover: it must be RECENT (within NEWS_MAX_AGE) and,
+// where Yahoo tags related tickers, actually about this stock. If nothing recent
+// qualifies, return null so the UI shows "no same-day news" rather than a stale
+// or off-topic article. Pure function, unit-tested.
+function selectHeadline(items, yf, display, nowSec) {
+  const up = String(yf).toUpperCase(), dp = String(display).toUpperCase();
+  const fresh = (items || []).filter(n =>
+    (n.providerPublishTime || 0) > 0 && (nowSec - n.providerPublishTime) <= NEWS_MAX_AGE);
+  const related = fresh.filter(n =>
+    (n.relatedTickers || []).map(s => String(s).toUpperCase()).some(s => s === up || s === dp));
+  const pool = related.length ? related : fresh; // ticker-scoped query, so fresh≈relevant
+  pool.sort((a, b) => (b.providerPublishTime || 0) - (a.providerPublishTime || 0));
+  const n = pool[0];
+  if (!n) return null;
+  return {
+    title: n.title, publisher: n.publisher || null, link: n.link || null,
+    time: n.providerPublishTime || null, related: related.length > 0
+  };
+}
+
 const newsCache = {};
 async function resolveNews(display) {
   const c = newsCache[display];
@@ -106,10 +128,9 @@ async function resolveNews(display) {
   const yf = YF_MAP[display] || display;
   try {
     const r = await fetch('https://query1.finance.yahoo.com/v1/finance/search?q=' +
-      encodeURIComponent(yf) + '&quotesCount=0&newsCount=2', { headers: { 'User-Agent': UA } });
+      encodeURIComponent(yf) + '&quotesCount=0&newsCount=10', { headers: { 'User-Agent': UA } });
     const j = await r.json();
-    const n = j && j.news && j.news[0];
-    const data = n ? { title: n.title, publisher: n.publisher || null, link: n.link || null } : null;
+    const data = selectHeadline((j && j.news) || [], yf, display, Date.now() / 1000);
     newsCache[display] = { at: Date.now(), data: data };
     return data;
   } catch (e) { return null; }
@@ -153,3 +174,4 @@ module.exports = async (req, res) => {
 
 module.exports.parseYahoo = parseYahoo;
 module.exports.YF_MAP = YF_MAP;
+module.exports.selectHeadline = selectHeadline;
