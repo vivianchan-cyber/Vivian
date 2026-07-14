@@ -217,6 +217,11 @@
     background: var(--surface-2); border: 1px dashed var(--line); border-radius: 10px;
     padding: 14px 16px; font-size: 12.5px; color: var(--ink-2);
   }
+  .mv-right { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex: none; }
+  .tagline { font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; border-radius: 5px; padding: 2px 6px; white-space: nowrap; }
+  .tagline.macro { background: var(--warn-soft); color: var(--warn); }
+  .tagline.company { background: var(--accent-soft); color: var(--accent); }
+  .mv .who span { display: block; }
 
   /* ---------- fx ---------- */
   .fx-row { display: flex; align-items: baseline; gap: 10px; padding: 10px 0; }
@@ -390,10 +395,8 @@
           <div class="card-b" id="movers"></div>
         </section>
         <section class="card">
-          <div class="card-h"><span>&#128202;</span><h2>Volume Spikes</h2></div>
-          <div class="card-b">
-            <div class="empty">Volume vs 30-day average needs a live feed, which this static page can&rsquo;t reach. Ask Claude to refresh the dashboard and this panel repopulates with sourced data.</div>
-          </div>
+          <div class="card-h"><span>&#128202;</span><h2>Volume Spikes</h2><span class="count" id="volCount"></span></div>
+          <div class="card-b" id="volspikes"></div>
         </section>
       </div>
 
@@ -740,7 +743,7 @@ function renderWatchlist() {
     var tr = el('tr');
     var label, pxCell, chgCell;
     if (q && q.ok) {
-      label = q.exchange ? esc(q.exchange) : 'added by you';
+      label = q.name ? esc(q.name) : (q.exchange ? esc(q.exchange) : 'added by you');
       pxCell = '<span class="px">' + curPrefix(q.currency) + fmtPrice(q.price, q.currency) + '</span>';
       chgCell = chgBadge(q.changePct == null ? null : Math.round(q.changePct * 10) / 10);
     } else if (q && !q.ok) {
@@ -774,6 +777,7 @@ function renderWatchlist() {
       saveWl();
       renderWatchlist();
       renderMovers();
+      renderVolume();
     });
   });
 }
@@ -796,29 +800,107 @@ document.getElementById('addForm').addEventListener('submit', function (ev) {
   if (deskPoll) deskPoll(); // fetch the new ticker right away
 });
 
-/* ================= movers ================= */
+/* ================= movers (±5% today, with company/macro attribution) ================= */
+var MOVE_THRESHOLD = 5;   // percent, up or down
+var MACRO_BAND = 2.0;     // within this many pp of its index => macro-driven
+
+function benchOf(t) {
+  if (/\.KS$/.test(t)) return { sym: 'KS11', name: 'KOSPI' };
+  if (/\.SI$/.test(t)) return { sym: 'STI',  name: 'STI' };
+  if (/\.T$/.test(t))  return { sym: 'N225', name: 'Nikkei' };
+  if (/\.AX$/.test(t)) return { sym: 'XJO',  name: 'ASX 200' };
+  if (/\.HK$/.test(t)) return { sym: 'HSI',  name: 'Hang Seng' };
+  return { sym: 'SPX', name: 'S&P 500' };
+}
+function signed(v, dp, unit) {
+  var s = v > 0 ? '+' : (v < 0 ? '−' : '');
+  return s + Math.abs(v).toFixed(dp == null ? 1 : dp) + (unit || '');
+}
+function moveReason(t, chg) {
+  var b = benchOf(t);
+  var bq = LIVE[b.sym];
+  if (!bq || bq.changePct == null) return { tag: '', cls: '', text: 'benchmark unavailable' };
+  var delta = chg - bq.changePct;
+  if (Math.abs(delta) <= MACRO_BAND) {
+    return { tag: 'MACRO', cls: 'macro', text: 'Moving with ' + b.name + ' (' + signed(bq.changePct, 1, '%') + ')' };
+  }
+  return { tag: 'COMPANY', cls: 'company', text: signed(delta, 1, ' pp') + ' vs ' + b.name + ' (' + signed(bq.changePct, 1, '%') + ')' };
+}
+
+function collectMovers() {
+  var out = [];
+  STOCKS.forEach(function (x) {
+    if (wlState.removed.indexOf(x.t) !== -1) return;
+    if (x.chg != null && Math.abs(x.chg) >= MOVE_THRESHOLD) {
+      out.push({ t: x.t, n: (LIVE[x.t] && LIVE[x.t].name) || x.n, chg: x.chg });
+    }
+  });
+  wlState.added.forEach(function (a) {
+    var q = LIVE[a];
+    if (q && q.ok && q.changePct != null && Math.abs(q.changePct) >= MOVE_THRESHOLD) {
+      out.push({ t: a, n: q.name || a, chg: Math.round(q.changePct * 10) / 10 });
+    }
+  });
+  return out;
+}
+
 function renderMovers() {
   var box = document.getElementById('movers');
   box.innerHTML = '';
-  var movers = STOCKS.filter(function (x) {
-    return wlState.removed.indexOf(x.t) === -1 && x.chg != null && Math.abs(x.chg) >= 5;
-  });
+  var movers = collectMovers();
   document.getElementById('mvCount').textContent = movers.length;
   if (!movers.length) {
-    box.appendChild(el('div', 'empty', 'No watchlist name moved ±5% in this snapshot.'));
+    box.appendChild(el('div', 'empty', 'No watchlist name is up or down more than ' + MOVE_THRESHOLD + '% today.'));
     return;
   }
   movers.sort(function (a, b) { return Math.abs(b.chg) - Math.abs(a.chg); });
   movers.forEach(function (x) {
+    var r = moveReason(x.t, x.chg);
     box.appendChild(el('div', 'mv',
       '<span class="tk">' + esc(x.t) + '</span>' +
-      '<span class="who"><b>' + esc(x.n) + '</b><span>' + esc(x.sector) + '</span></span>' +
-      chgBadge(x.chg)));
+      '<span class="who"><b>' + esc(x.n) + '</b><span>' + esc(r.text) + '</span></span>' +
+      '<span class="mv-right">' + chgBadge(x.chg) +
+        (r.tag ? '<span class="tagline ' + r.cls + '">' + r.tag + '</span>' : '') +
+      '</span>'));
+  });
+}
+
+/* ================= volume spikes (today vs 3-month avg daily volume) ================= */
+var VOL_THRESHOLD = 2.0;  // flag if today's volume >= this * 3-month average
+
+function renderVolume() {
+  var box = document.getElementById('volspikes');
+  if (!box) return;
+  box.innerHTML = '';
+  var items = [];
+  function consider(t, fallbackName) {
+    var q = LIVE[t];
+    if (q && q.ok && q.volRatio != null && q.volRatio >= VOL_THRESHOLD) {
+      items.push({ t: t, n: (q.name) || fallbackName || t, r: q.volRatio });
+    }
+  }
+  STOCKS.forEach(function (x) { if (wlState.removed.indexOf(x.t) === -1) consider(x.t, x.n); });
+  wlState.added.forEach(function (a) { consider(a, null); });
+
+  document.getElementById('volCount').textContent = items.length;
+  if (!items.length) {
+    box.appendChild(el('div', 'empty',
+      'No unusual volume today — every watchlist name is trading under ' + VOL_THRESHOLD +
+      '× its 3-month average daily volume.'));
+    return;
+  }
+  items.sort(function (a, b) { return b.r - a.r; });
+  items.forEach(function (x) {
+    box.appendChild(el('div', 'mv',
+      '<span class="tk">' + esc(x.t) + '</span>' +
+      '<span class="who"><b>' + esc(x.n) + '</b><span>vs 3-month average daily volume</span></span>' +
+      '<span class="badge ' + (x.r >= 3 ? 'down' : 'warn') + '">' + x.r.toFixed(1) + '× vol</span>'));
   });
 }
 
 renderWatchlist();
 renderMovers();
+renderVolume();
 
 /* ================= earnings list ================= */
 (function () {
@@ -995,6 +1077,7 @@ renderMovers();
     renderTape();
     renderWatchlist();
     renderMovers();
+    renderVolume();
     return { live: live, requested: requested };
   }
 
