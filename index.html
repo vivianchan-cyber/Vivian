@@ -830,6 +830,21 @@ function moveReason(t, chg) {
   return { tag: 'COMPANY', cls: 'company', text: signed(delta, 1, ' pp') + ' vs ' + b.name + ' (' + signed(bq.changePct, 1, '%') + ')' };
 }
 
+// Sub-line for a mover/spike row: the live headline (linked, with publisher)
+// plus a small fallback/context line, or just the fallback text if no headline.
+function newsBlock(t, fallbackText) {
+  var q = LIVE[t];
+  var hl = q && q.headline;
+  if (hl && hl.title) {
+    var pub = hl.publisher ? ' <span class="src2" style="color:var(--muted)">· ' + esc(hl.publisher) + '</span>' : '';
+    var head = hl.link
+      ? '<a class="hl" href="' + esc(hl.link) + '" target="_blank" rel="noopener">' + esc(hl.title) + '</a>'
+      : '<span class="hl">' + esc(hl.title) + '</span>';
+    return head + pub + '<span class="reason">' + esc(fallbackText) + '</span>';
+  }
+  return '<span>' + esc(fallbackText) + '</span>';
+}
+
 function collectMovers() {
   var out = [];
   STOCKS.forEach(function (x) {
@@ -859,22 +874,9 @@ function renderMovers() {
   movers.sort(function (a, b) { return Math.abs(b.chg) - Math.abs(a.chg); });
   movers.forEach(function (x) {
     var r = moveReason(x.t, x.chg);
-    var q = LIVE[x.t];
-    var hl = q && q.headline;
-    var line;
-    if (hl && hl.title) {
-      var pub = hl.publisher ? ' <span class="src2" style="color:var(--muted)">· ' + esc(hl.publisher) + '</span>' : '';
-      var title = esc(hl.title);
-      line = (hl.link
-        ? '<a class="hl" href="' + esc(hl.link) + '" target="_blank" rel="noopener">' + title + '</a>'
-        : '<span class="hl">' + title + '</span>') + pub +
-        '<span class="reason">' + esc(r.text) + '</span>';
-    } else {
-      line = '<span>' + esc(r.text) + '</span>';
-    }
     box.appendChild(el('div', 'mv',
       '<span class="tk">' + esc(x.t) + '</span>' +
-      '<span class="who"><b>' + esc(x.n) + '</b>' + line + '</span>' +
+      '<span class="who"><b>' + esc(x.n) + '</b>' + newsBlock(x.t, r.text) + '</span>' +
       '<span class="mv-right">' + chgBadge(x.chg) +
         (r.tag ? '<span class="tagline ' + r.cls + '">' + r.tag + '</span>' : '') +
       '</span>'));
@@ -909,7 +911,7 @@ function renderVolume() {
   items.forEach(function (x) {
     box.appendChild(el('div', 'mv',
       '<span class="tk">' + esc(x.t) + '</span>' +
-      '<span class="who"><b>' + esc(x.n) + '</b><span>vs 3-month average daily volume</span></span>' +
+      '<span class="who"><b>' + esc(x.n) + '</b>' + newsBlock(x.t, 'vs 3-month average daily volume') + '</span>' +
       '<span class="badge ' + (x.r >= 3 ? 'down' : 'warn') + '">' + x.r.toFixed(1) + '× vol</span>'));
   });
 }

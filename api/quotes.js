@@ -98,6 +98,7 @@ async function resolveName(display) {
 // Top news headline per symbol — fetched only for movers, cached ~10 min.
 const NEWS_TTL = 10 * 60 * 1000;
 const MOVER_PCT = 5;
+const SPIKE_RATIO = 1.5; // mirror the front-end volume threshold
 const newsCache = {};
 async function resolveNews(display) {
   const c = newsCache[display];
@@ -131,11 +132,12 @@ module.exports = async (req, res) => {
 
   const results = await Promise.all(symbols.map(fetchOne));
   await Promise.all(results.map(async q => { if (q.ok) q.name = await resolveName(q.symbol); }));
-  // Attach a live news headline to movers only, to keep request volume low.
+  // Attach a live news headline to price movers and volume spikers only,
+  // to keep request volume low.
   await Promise.all(results.map(async q => {
-    if (q.ok && q.changePct != null && Math.abs(q.changePct) >= MOVER_PCT) {
-      q.headline = await resolveNews(q.symbol);
-    }
+    var isMover = q.ok && q.changePct != null && Math.abs(q.changePct) >= MOVER_PCT;
+    var isSpike = q.ok && q.volRatio != null && q.volRatio >= SPIKE_RATIO;
+    if (isMover || isSpike) q.headline = await resolveNews(q.symbol);
   }));
 
   const payload = {
