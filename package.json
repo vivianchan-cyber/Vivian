@@ -1,0 +1,9 @@
+{
+  "name": "vivians-desk",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Vivian's Desk — live markets, portfolio, research & CRM dashboard",
+  "engines": {
+    "node": ">=18"
+  }
+}
