@@ -41,10 +41,21 @@ function parseYahoo(display, json) {
     return { symbol: display, ok: false, reason: (err && err.description) || 'no data' };
   }
   const price = meta.regularMarketPrice;
-  const prev = meta.previousClose != null ? meta.previousClose : meta.chartPreviousClose;
   if (typeof price !== 'number' || !isFinite(price)) {
     return { symbol: display, ok: false, reason: 'no price' };
   }
+
+  // DAILY change: compare to the most recent PRIOR trading-day close taken from
+  // the daily closes array. (meta.chartPreviousClose is the start of the 3-month
+  // range — using it would report a 3-month return, not the day's move.)
+  let closes = [];
+  try { closes = result.indicators.quote[0].close || []; } catch (e) {}
+  const lastTwo = [];
+  for (let i = closes.length - 1; i >= 0 && lastTwo.length < 2; i--) {
+    if (typeof closes[i] === 'number' && closes[i] > 0) lastTwo.push(closes[i]);
+  }
+  let prev = lastTwo.length >= 2 ? lastTwo[1]
+    : (typeof meta.previousClose === 'number' ? meta.previousClose : null);
   const changePct = (typeof prev === 'number' && prev !== 0) ? ((price - prev) / prev) * 100 : null;
 
   // Volume: today vs average of the prior ~3 months of daily volume.
@@ -105,19 +116,24 @@ const NEWS_MAX_AGE = 36 * 3600; // seconds — only "on the day" news counts
 // where Yahoo tags related tickers, actually about this stock. If nothing recent
 // qualifies, return null so the UI shows "no same-day news" rather than a stale
 // or off-topic article. Pure function, unit-tested.
-function selectHeadline(items, yf, display, nowSec) {
+function selectHeadline(items, yf, display, name, nowSec) {
   const up = String(yf).toUpperCase(), dp = String(display).toUpperCase();
+  const nm = name ? String(name).toLowerCase() : null;
   const fresh = (items || []).filter(n =>
     (n.providerPublishTime || 0) > 0 && (nowSec - n.providerPublishTime) <= NEWS_MAX_AGE);
-  const related = fresh.filter(n =>
-    (n.relatedTickers || []).map(s => String(s).toUpperCase()).some(s => s === up || s === dp));
-  const pool = related.length ? related : fresh; // ticker-scoped query, so fresh≈relevant
-  pool.sort((a, b) => (b.providerPublishTime || 0) - (a.providerPublishTime || 0));
-  const n = pool[0];
+  // Relevant = Yahoo tags this stock's ticker, OR the company name is in the title.
+  // No generic-news fallback: an unrelated headline is worse than none.
+  const relevant = fresh.filter(n => {
+    const tickers = (n.relatedTickers || []).map(s => String(s).toUpperCase());
+    if (tickers.some(s => s === up || s === dp)) return true;
+    return nm && n.title && n.title.toLowerCase().indexOf(nm) !== -1;
+  });
+  relevant.sort((a, b) => (b.providerPublishTime || 0) - (a.providerPublishTime || 0));
+  const n = relevant[0];
   if (!n) return null;
   return {
     title: n.title, publisher: n.publisher || null, link: n.link || null,
-    time: n.providerPublishTime || null, related: related.length > 0
+    time: n.providerPublishTime || null
   };
 }
 
@@ -130,7 +146,7 @@ async function resolveNews(display) {
     const r = await fetch('https://query1.finance.yahoo.com/v1/finance/search?q=' +
       encodeURIComponent(yf) + '&quotesCount=0&newsCount=10', { headers: { 'User-Agent': UA } });
     const j = await r.json();
-    const data = selectHeadline((j && j.news) || [], yf, display, Date.now() / 1000);
+    const data = selectHeadline((j && j.news) || [], yf, display, nameCache[display], Date.now() / 1000);
     newsCache[display] = { at: Date.now(), data: data };
     return data;
   } catch (e) { return null; }
