@@ -95,6 +95,25 @@ async function resolveName(display) {
   } catch (e) { return null; }
 }
 
+// Top news headline per symbol — fetched only for movers, cached ~10 min.
+const NEWS_TTL = 10 * 60 * 1000;
+const MOVER_PCT = 5;
+const newsCache = {};
+async function resolveNews(display) {
+  const c = newsCache[display];
+  if (c && Date.now() - c.at < NEWS_TTL) return c.data;
+  const yf = YF_MAP[display] || display;
+  try {
+    const r = await fetch('https://query1.finance.yahoo.com/v1/finance/search?q=' +
+      encodeURIComponent(yf) + '&quotesCount=0&newsCount=2', { headers: { 'User-Agent': UA } });
+    const j = await r.json();
+    const n = j && j.news && j.news[0];
+    const data = n ? { title: n.title, publisher: n.publisher || null, link: n.link || null } : null;
+    newsCache[display] = { at: Date.now(), data: data };
+    return data;
+  } catch (e) { return null; }
+}
+
 let cache = { at: 0, key: '', data: null };
 
 module.exports = async (req, res) => {
@@ -112,6 +131,12 @@ module.exports = async (req, res) => {
 
   const results = await Promise.all(symbols.map(fetchOne));
   await Promise.all(results.map(async q => { if (q.ok) q.name = await resolveName(q.symbol); }));
+  // Attach a live news headline to movers only, to keep request volume low.
+  await Promise.all(results.map(async q => {
+    if (q.ok && q.changePct != null && Math.abs(q.changePct) >= MOVER_PCT) {
+      q.headline = await resolveNews(q.symbol);
+    }
+  }));
 
   const payload = {
     live: true, source: 'yahoo', fetchedAt: new Date().toISOString(),

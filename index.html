@@ -222,6 +222,9 @@
   .tagline.macro { background: var(--warn-soft); color: var(--warn); }
   .tagline.company { background: var(--accent-soft); color: var(--accent); }
   .mv .who span { display: block; }
+  .mv .who .hl { color: var(--accent); text-decoration: none; font-weight: 600; display: inline; }
+  .mv .who .hl:hover { text-decoration: underline; }
+  .mv .who .reason { color: var(--muted); font-size: 11px; margin-top: 2px; }
 
   /* ---------- fx ---------- */
   .fx-row { display: flex; align-items: baseline; gap: 10px; padding: 10px 0; }
@@ -856,9 +859,22 @@ function renderMovers() {
   movers.sort(function (a, b) { return Math.abs(b.chg) - Math.abs(a.chg); });
   movers.forEach(function (x) {
     var r = moveReason(x.t, x.chg);
+    var q = LIVE[x.t];
+    var hl = q && q.headline;
+    var line;
+    if (hl && hl.title) {
+      var pub = hl.publisher ? ' <span class="src2" style="color:var(--muted)">· ' + esc(hl.publisher) + '</span>' : '';
+      var title = esc(hl.title);
+      line = (hl.link
+        ? '<a class="hl" href="' + esc(hl.link) + '" target="_blank" rel="noopener">' + title + '</a>'
+        : '<span class="hl">' + title + '</span>') + pub +
+        '<span class="reason">' + esc(r.text) + '</span>';
+    } else {
+      line = '<span>' + esc(r.text) + '</span>';
+    }
     box.appendChild(el('div', 'mv',
       '<span class="tk">' + esc(x.t) + '</span>' +
-      '<span class="who"><b>' + esc(x.n) + '</b><span>' + esc(r.text) + '</span></span>' +
+      '<span class="who"><b>' + esc(x.n) + '</b>' + line + '</span>' +
       '<span class="mv-right">' + chgBadge(x.chg) +
         (r.tag ? '<span class="tagline ' + r.cls + '">' + r.tag + '</span>' : '') +
       '</span>'));
@@ -866,7 +882,7 @@ function renderMovers() {
 }
 
 /* ================= volume spikes (today vs 3-month avg daily volume) ================= */
-var VOL_THRESHOLD = 2.0;  // flag if today's volume >= this * 3-month average
+var VOL_THRESHOLD = 1.5;  // flag if today's volume >= this * 3-month average
 
 function renderVolume() {
   var box = document.getElementById('volspikes');
