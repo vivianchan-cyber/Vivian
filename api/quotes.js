@@ -14,9 +14,9 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 
 // Display key (front-end) → Yahoo ticker. Add a row to make a symbol go live.
 const YF_MAP = {
-  SPX: '^GSPC', IXIC: '^IXIC', STI: '^STI', N225: '^N225',
+  SPX: '^GSPC', IXIC: '^IXIC', DJI: '^DJI', STI: '^STI', N225: '^N225',
   HSI: '^HSI', XJO: '^AXJO', KS11: '^KS11',
-  'XAU/USD': 'GC=F', BRENT: 'BZ=F', 'BTC/USD': 'BTC-USD',
+  'XAU/USD': 'GC=F', 'XAG/USD': 'SI=F', COPPER: 'HG=F', BRENT: 'BZ=F', 'BTC/USD': 'BTC-USD',
   NVDA: 'NVDA', TSM: 'TSM', ASML: 'ASML', AAPL: 'AAPL',
   '000660.KS': '000660.KS', '005930.KS': '005930.KS',
   'D05.SI': 'D05.SI', 'BHP.AX': 'BHP.AX', '7203.T': '7203.T'
@@ -25,8 +25,9 @@ const YF_MAP = {
 // Names we already know — seeded so only user-added tickers need a lookup.
 // (indices/commodities are seeded too so they never trigger a search call.)
 const NAME_SEED = {
-  SPX: 'S&P 500', IXIC: 'NASDAQ', STI: 'STI', N225: 'Nikkei 225', HSI: 'Hang Seng',
-  XJO: 'ASX 200', KS11: 'KOSPI', 'XAU/USD': 'Gold', BRENT: 'Brent Crude', 'BTC/USD': 'Bitcoin',
+  SPX: 'S&P 500', IXIC: 'NASDAQ', DJI: 'Dow Jones', STI: 'STI', N225: 'Nikkei 225', HSI: 'Hang Seng',
+  XJO: 'ASX 200', KS11: 'KOSPI', 'XAU/USD': 'Gold', 'XAG/USD': 'Silver', COPPER: 'Copper',
+  BRENT: 'Brent Crude', 'BTC/USD': 'Bitcoin',
   NVDA: 'NVIDIA', TSM: 'TSMC ADR', ASML: 'ASML Holding', AAPL: 'Apple',
   '000660.KS': 'SK Hynix', '005930.KS': 'Samsung Elec', 'D05.SI': 'DBS Group',
   'BHP.AX': 'BHP Group', '7203.T': 'Toyota Motor'
@@ -58,19 +59,32 @@ function parseYahoo(display, json) {
     : (typeof meta.previousClose === 'number' ? meta.previousClose : null);
   const changePct = (typeof prev === 'number' && prev !== 0) ? ((price - prev) / prev) * 100 : null;
 
-  // Volume: today vs average of the prior ~3 months of daily volume.
+  // Volume: today vs the trailing ~3 months (≈63 sessions) of daily volume.
   let vols = [];
   try { vols = result.indicators.quote[0].volume || []; } catch (e) {}
-  const clean = vols.filter(v => typeof v === 'number' && v > 0);
-  let today = (typeof meta.regularMarketVolume === 'number' && meta.regularMarketVolume > 0)
+  const cleanV = vols.filter(v => typeof v === 'number' && v > 0);
+  const today = (typeof meta.regularMarketVolume === 'number' && meta.regularMarketVolume > 0)
     ? meta.regularMarketVolume
-    : (clean.length ? clean[clean.length - 1] : null);
-  const hist = clean.length > 1 ? clean.slice(0, clean.length - 1) : clean;
+    : (cleanV.length ? cleanV[cleanV.length - 1] : null);
+  const histAll = cleanV.length > 1 ? cleanV.slice(0, cleanV.length - 1) : cleanV;
+  const hist = histAll.slice(-63);
   const avgVol3M = hist.length ? Math.round(hist.reduce((a, b) => a + b, 0) / hist.length) : null;
   const volRatio = (avgVol3M && today) ? today / avgVol3M : null;
 
+  // YTD change: first close of the current calendar year vs current price.
+  let ytdPct = null;
+  const ts = result.timestamp || [];
+  const yearNow = new Date().getUTCFullYear();
+  for (let i = 0; i < closes.length; i++) {
+    if (typeof closes[i] === 'number' && closes[i] > 0 && ts[i] &&
+        new Date(ts[i] * 1000).getUTCFullYear() === yearNow) {
+      ytdPct = ((price - closes[i]) / closes[i]) * 100;
+      break;
+    }
+  }
+
   return {
-    symbol: display, ok: true, price: price, changePct: changePct,
+    symbol: display, ok: true, price: price, changePct: changePct, ytdPct: ytdPct,
     currency: meta.currency || null,
     exchange: meta.fullExchangeName || meta.exchangeName || null,
     volume: today, avgVol3M: avgVol3M, volRatio: volRatio
@@ -80,7 +94,7 @@ function parseYahoo(display, json) {
 async function fetchOne(display) {
   const yf = YF_MAP[display] || display;
   const url = 'https://query1.finance.yahoo.com/v8/finance/chart/' +
-    encodeURIComponent(yf) + '?range=3mo&interval=1d';
+    encodeURIComponent(yf) + '?range=1y&interval=1d';
   try {
     const r = await fetch(url, { headers: { 'User-Agent': UA, 'Accept': 'application/json' } });
     if (!r.ok) return { symbol: display, ok: false, reason: 'HTTP ' + r.status };
