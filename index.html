@@ -469,24 +469,18 @@
 
       <!-- portfolio -->
       <section class="card">
-        <div class="card-h"><span>&#128188;</span><h2>Portfolio</h2><span class="tag">sample holdings</span></div>
+        <div class="card-h"><span>&#128188;</span><h2>Portfolio</h2><span class="tag">sample shares · live prices</span></div>
         <div class="card-b">
           <div class="tiles">
-            <div class="tile"><div class="k">Market value</div><div class="v">$108,278</div><div class="s">USD &middot; snapshot FX 10&ndash;13 Jul</div></div>
-            <div class="tile"><div class="k">Day move</div><div class="v d">&minus;$1,860</div><div class="s">&minus;1.7% est &middot; AAPL/DBS assumed flat</div></div>
-            <div class="tile"><div class="k">Top weight</div><div class="v">DBS 25%</div><div class="s">largest single position</div></div>
-            <div class="tile"><div class="k">Currency mix</div><div class="v">67 / 25 / 8</div><div class="s">USD / SGD / AUD, % of value</div></div>
+            <div class="tile"><div class="k">Market value</div><div class="v" id="pfValue">&hellip;</div><div class="s" id="pfValueSub">USD · live prices &amp; FX</div></div>
+            <div class="tile"><div class="k">Day move</div><div class="v" id="pfDay">&hellip;</div><div class="s" id="pfDaySub">today</div></div>
+            <div class="tile"><div class="k">Top weight</div><div class="v" id="pfTop">&hellip;</div><div class="s">largest single position</div></div>
+            <div class="tile"><div class="k">Currency mix</div><div class="v" id="pfMix">&hellip;</div><div class="s">USD / SGD / AUD, % of value</div></div>
           </div>
           <div class="sec-lbl">Holdings</div>
           <div id="holdings"></div>
-          <p class="pf-note">Share counts are the sample set from the first build &mdash; tell Claude your real positions to make this card live. P/E, dividend income and beta need fundamental data and are omitted rather than guessed.</p>
+          <p class="pf-note" id="pfNote">Live market value, day P/L and weights are computed from live prices &amp; FX on the share counts below. Share counts are a sample &mdash; tell Claude your real positions to personalise it. P/E, dividend income and beta need fundamental data and are omitted rather than guessed.</p>
         </div>
-      </section>
-
-      <!-- crm -->
-      <section class="card">
-        <div class="card-h"><span>&#129309;</span><h2>CRM</h2><span class="tag">sample</span></div>
-        <div class="card-b" id="crm"></div>
       </section>
     </div>
   </div>
@@ -499,7 +493,7 @@
 
   <footer class="desk-foot">
     Prices refresh live from your data provider via a secure proxy; anything the plan doesn&rsquo;t cover falls back to the 13&ndash;14 Jul snapshot and is counted in the status chip.<br />
-    Macro rates, calendar, research &amp; CRM are editorial and update when Claude refreshes them. Not investment advice. &middot; Built for Vivian
+    Central-bank rate levels are point-in-time (as labelled); meeting/release dates self-advance. Not investment advice. &middot; Built for Vivian
   </footer>
 </div>
 
@@ -544,13 +538,14 @@ var STOCKS = [
   { t: '7203.T',    n: 'Toyota Motor', px: '2,823',     ccy: '¥', chg: null, asof: '10 Jul', sector: 'Autos', ev: 'early Aug', evDate: null, tbc: true }
 ];
 
+// Sample share counts — value, day P/L and weights are computed live from prices.
 var HOLDINGS = [
-  { t: 'D05.SI', n: 'DBS Group',    sh: '500 sh', w: 25, chg: null },
-  { t: 'AAPL',   n: 'Apple',        sh: '70 sh',  w: 21, chg: null },
-  { t: 'ASML',   n: 'ASML Holding', sh: '12 sh',  w: 20, chg: -3.2 },
-  { t: 'TSM',    n: 'TSMC ADR',     sh: '40 sh',  w: 16, chg: -2.5 },
-  { t: 'NVDA',   n: 'NVIDIA',       sh: '60 sh',  w: 11, chg: -3.5 },
-  { t: 'BHP.AX', n: 'BHP Group',    sh: '200 sh', w: 8,  chg: -3.2 }
+  { t: 'D05.SI', n: 'DBS Group',    qty: 500 },
+  { t: 'AAPL',   n: 'Apple',        qty: 70 },
+  { t: 'ASML',   n: 'ASML Holding', qty: 12 },
+  { t: 'TSM',    n: 'TSMC ADR',     qty: 40 },
+  { t: 'NVDA',   n: 'NVIDIA',       qty: 60 },
+  { t: 'BHP.AX', n: 'BHP Group',    qty: 200 }
 ];
 
 // Central-bank policy (rate level is point-in-time; meeting dates are the real
@@ -570,33 +565,8 @@ var RELEASES = [
   { k: 'GDP', name: 'China GDP (Q3)',      source: 'NBS',       date: '2026-10-19', approx: true }
 ];
 
-var RESEARCH = {
-  'AI & Semis': [
-    { b: 'Chip rout deepens in Seoul — SK Hynix −12.7%, Samsung −10.7%', src: 'CNBC', when: '14 Jul' },
-    { b: 'ASML reports Q2 tomorrow; street at EPS US$7.94 on US$10.3B revenue', src: 'Yahoo Finance', when: '13 Jul' },
-    { b: 'TSMC Q2 lands Thursday — which stocks win or lose on the AI capex read', src: '24/7 Wall St.', when: '13 Jul' },
-    { b: 'Eased UAE export controls lifted NVDA ~4% late last week', src: 'Zacks', when: '10 Jul' }
-  ],
-  'China': [
-    { b: 'Q2 GDP due Wednesday 15 Jul — the week’s biggest China print', src: 'NBS calendar', when: '14 Jul' },
-    { b: 'HSI +0.6% to 24,175, bucking the regional tech selloff', src: 'Market data', when: '14 Jul' }
-  ],
-  'Japan': [
-    { b: 'Nikkei −1.9% to 67,243 as semis drag; BoJ decision looms 31 Jul (rate 1.00%)', src: 'Market data', when: '14 Jul' },
-    { b: 'Toyota around ¥2,823 (10 Jul); FY results expected early Aug', src: 'Trading Economics', when: '10 Jul' }
-  ],
-  'Energy': [
-    { b: 'US reinstates Strait of Hormuz shipping blockade — Brent +3.7% to US$78.85', src: 'Yahoo Finance', when: '13 Jul' },
-    { b: 'Gold −2.9% to US$4,001 as the 10-year yield jumps to 4.60%', src: 'Trading Economics', when: '13 Jul' }
-  ]
-};
-
-var CRM = [
-  { i: 'JO', c: '#4653c9', n: 'James Okafor', r: 'PM, Meridian Capital', met: 'Lunch · 8 Jul', task: 'Send AI deck',   due: '2026-07-16' },
-  { i: 'AT', c: '#1d7a46', n: 'Aiko Tanaka',  r: 'IR, Toyota',           met: 'Call · 2 Jul',  task: 'Q2 follow-up',  due: '2026-07-19' },
-  { i: 'RM', c: '#c43c42', n: 'Raj Menon',    r: 'Head of FX, DBS',      met: 'Coffee · 30 Jun', task: 'SGD view note', due: '2026-07-08' },
-  { i: 'SL', c: '#b25d9a', n: 'Sofia Lund',   r: 'Analyst, ASML',        met: 'Conf · 26 Jun',  task: 'Intro to team', due: '2026-07-23' }
-];
+var RESEARCH_TOPICS = ['AI & Semis', 'China', 'Japan', 'Energy'];
+var RESEARCHLIVE = {}; // label -> [{title, publisher, link, time}] (undefined = loading)
 
 var PROMPTS = [
   'Why is SK Hynix down 12%?',
@@ -1125,52 +1095,117 @@ function renderMacro() {
 }
 renderMacro();
 
-/* ================= research tabs ================= */
+/* ================= research tabs (live headlines per theme) ================= */
+var researchActive = RESEARCH_TOPICS[0];
+function renderResearch() {
+  var stories = document.getElementById('stories');
+  var tabs = document.getElementById('rtabs');
+  if (!stories || !tabs) return;
+  tabs.querySelectorAll('.rtab').forEach(function (t) {
+    t.setAttribute('aria-selected', t.textContent === researchActive ? 'true' : 'false');
+  });
+  stories.innerHTML = '';
+  var items = RESEARCHLIVE[researchActive];
+  if (!items) { stories.appendChild(el('div', 'empty', 'Loading headlines…')); return; }
+  if (!items.length) { stories.appendChild(el('div', 'empty', 'No recent headlines for this theme.')); return; }
+  items.forEach(function (s) {
+    var meta = [];
+    if (s.publisher) meta.push(esc(s.publisher));
+    if (s.time) meta.push(relTime(s.time));
+    var head = s.link
+      ? '<a class="hl" href="' + esc(s.link) + '" target="_blank" rel="noopener">' + esc(s.title) + '</a>'
+      : '<b>' + esc(s.title) + '</b>';
+    stories.appendChild(el('div', 'story', head + '<div class="src">' + meta.join(' · ') + '</div>'));
+  });
+}
 (function () {
   var tabs = document.getElementById('rtabs');
-  var stories = document.getElementById('stories');
-  var names = Object.keys(RESEARCH);
-  function show(name) {
-    stories.innerHTML = '';
-    RESEARCH[name].forEach(function (s) {
-      stories.appendChild(el('div', 'story',
-        '<b>' + esc(s.b) + '</b><div class="src"><em>' + esc(s.src) + '</em> · ' + esc(s.when) + '</div>'));
-    });
-    tabs.querySelectorAll('.rtab').forEach(function (t) {
-      t.setAttribute('aria-selected', t.textContent === name ? 'true' : 'false');
-    });
-  }
-  names.forEach(function (name, i) {
+  RESEARCH_TOPICS.forEach(function (name, i) {
     var b = el('button', 'rtab', esc(name));
     b.setAttribute('role', 'tab');
     b.setAttribute('aria-selected', i === 0 ? 'true' : 'false');
-    b.addEventListener('click', function () { show(name); });
+    b.addEventListener('click', function () { researchActive = name; renderResearch(); });
     tabs.appendChild(b);
   });
-  show(names[0]);
 })();
+function pollResearch() {
+  fetch('/api/research?topics=' + encodeURIComponent(RESEARCH_TOPICS.join('|')))
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      RESEARCH_TOPICS.forEach(function (t) { RESEARCHLIVE[t] = (data.topics && data.topics[t]) || []; });
+      renderResearch();
+    })
+    .catch(function () { renderResearch(); });
+}
+renderResearch();
+pollResearch();
+setInterval(pollResearch, 30 * 60 * 1000);
 
-/* ================= holdings ================= */
-(function () {
+/* ================= portfolio (live value/P&L/weights from prices + FX) ================= */
+function fxToUsd(cur) {
+  if (cur === 'USD') return 1;
+  if (cur === 'SGD') return (LIVE['SGD/USD'] && LIVE['SGD/USD'].ok) ? LIVE['SGD/USD'].price : null;
+  if (cur === 'AUD') return (LIVE['AUD/USD'] && LIVE['AUD/USD'].ok) ? LIVE['AUD/USD'].price : null;
+  return null; // currency we can't convert without its USD cross
+}
+function money(n) {
+  var sign = n < 0 ? '−' : '';
+  return sign + '$' + Math.round(Math.abs(n)).toLocaleString('en-US');
+}
+function renderPortfolio() {
   var box = document.getElementById('holdings');
-  HOLDINGS.forEach(function (h) {
-    box.appendChild(el('div', 'hold',
-      '<div class="top"><span class="tk">' + esc(h.t) + '</span><span class="nm">' + esc(h.n) + ' · ' + esc(h.sh) + '</span>' +
-      '<span class="right">' + chgBadge(h.chg) + '<div class="w">' + h.w + '%</div></span></div>' +
-      '<div class="bar"><i style="width:' + h.w + '%"></i></div>'));
+  if (!box) return;
+  var rows = HOLDINGS.map(function (h) {
+    var q = LIVE[h.t];
+    var priced = q && q.ok && typeof q.price === 'number';
+    var fx = priced ? fxToUsd(q.currency) : null;
+    var valUsd = (priced && fx != null) ? h.qty * q.price * fx : null;
+    var chg = priced ? q.changePct : null;
+    return { h: h, valUsd: valUsd, chg: chg, cur: priced ? q.currency : null };
   });
-})();
+  var total = rows.reduce(function (s, r) { return s + (r.valUsd || 0); }, 0);
+  var priorTotal = rows.reduce(function (s, r) {
+    if (r.valUsd == null || r.chg == null) return s + (r.valUsd || 0);
+    return s + r.valUsd / (1 + r.chg / 100);
+  }, 0);
+  var dayPnl = total - priorTotal;
 
-/* ================= crm ================= */
-(function () {
-  var box = document.getElementById('crm');
-  CRM.forEach(function (p) {
-    box.appendChild(el('div', 'person',
-      '<span class="avatar" style="background:' + p.c + '">' + esc(p.i) + '</span>' +
-      '<span class="info"><b>' + esc(p.n) + '</b><span class="role">' + esc(p.r) + '</span><div class="met">' + esc(p.met) + '</div></span>' +
-      '<span class="due">' + dueChip(p.due) + '<div class="task">' + esc(p.task) + '</div></span>'));
+  // weights + top
+  rows.forEach(function (r) { r.w = total > 0 && r.valUsd != null ? (r.valUsd / total) * 100 : 0; });
+  var top = rows.slice().filter(function (r) { return r.valUsd != null; }).sort(function (a, b) { return b.w - a.w; })[0];
+
+  // currency mix
+  var mix = { USD: 0, SGD: 0, AUD: 0 };
+  rows.forEach(function (r) { if (r.valUsd != null && mix.hasOwnProperty(r.cur)) mix[r.cur] += r.valUsd; });
+
+  // tiles
+  var vEl = document.getElementById('pfValue');
+  if (total > 0) {
+    vEl.textContent = money(total);
+    var dEl = document.getElementById('pfDay');
+    dEl.textContent = (dayPnl >= 0 ? '+' : '−') + '$' + Math.round(Math.abs(dayPnl)).toLocaleString('en-US');
+    dEl.className = 'v ' + (dayPnl > 0 ? 'u' : (dayPnl < 0 ? 'd' : ''));
+    var dayPct = priorTotal > 0 ? (dayPnl / priorTotal) * 100 : 0;
+    document.getElementById('pfDaySub').textContent = (dayPct >= 0 ? '+' : '−') + Math.abs(dayPct).toFixed(1) + '% today';
+    if (top) document.getElementById('pfTop').textContent = top.h.n.split(' ')[0] + ' ' + Math.round(top.w) + '%';
+    document.getElementById('pfMix').textContent =
+      Math.round(mix.USD / total * 100) + ' / ' + Math.round(mix.SGD / total * 100) + ' / ' + Math.round(mix.AUD / total * 100);
+  } else {
+    vEl.textContent = '…';
+  }
+
+  // holdings list
+  box.innerHTML = '';
+  rows.sort(function (a, b) { return (b.valUsd || 0) - (a.valUsd || 0); });
+  rows.forEach(function (r) {
+    var w = Math.round(r.w);
+    box.appendChild(el('div', 'hold',
+      '<div class="top"><span class="tk">' + esc(r.h.t) + '</span><span class="nm">' + esc(r.h.n) + ' · ' + r.h.qty + ' sh</span>' +
+      '<span class="right">' + chgBadge(r.chg == null ? null : Math.round(r.chg * 10) / 10) + '<div class="w">' + (r.valUsd != null ? w + '%' : '—') + '</div></span></div>' +
+      '<div class="bar"><i style="width:' + w + '%"></i></div>'));
   });
-})();
+}
+renderPortfolio();
 
 /* ============ calendar (self-advancing: banks + releases + live earnings) ============ */
 function renderCalendar() {
@@ -1298,6 +1333,7 @@ renderCalendar();
     renderMovers();
     renderVolume();
     renderFx();
+    renderPortfolio();
     return { live: live, requested: requested };
   }
 
