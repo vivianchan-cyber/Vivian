@@ -359,6 +359,10 @@
   @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
 
   footer.desk-foot { text-align: center; color: var(--muted); font-size: 12px; margin-top: 34px; line-height: 1.7; }
+  footer.desk-foot .byline { margin-top: 8px; font-size: 12px; }
+  footer.desk-foot .byline .sep { margin: 0 6px; opacity: .5; }
+  footer.desk-foot .byline a { color: inherit; text-decoration: none; border-bottom: 1px solid currentColor; padding-bottom: 1px; transition: color .15s ease; }
+  footer.desk-foot .byline a:hover { color: var(--accent); }
 </style>
 
 <div class="wrap">
@@ -499,6 +503,7 @@
   <footer class="desk-foot">
     Prices refresh live via a secure proxy; a symbol the feed can&rsquo;t return falls back to its last value and is counted in the status chip.<br />
     Central-bank rate levels are point-in-time (as labelled); meeting/release dates self-advance. Not investment advice. &middot; Built for Vivian
+    <div class="byline">Built by Vivian Chan <span class="sep">|</span> <a href="https://github.com/vivianchan-cyber/Vivian" target="_blank" rel="noopener">GitHub</a></div>
   </footer>
 </div>
 
