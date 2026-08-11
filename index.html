@@ -417,14 +417,8 @@
       <section class="card">
         <div class="card-h"><span>&#127758;</span><h2>Macro &mdash; Central banks &amp; releases</h2></div>
         <div class="card-b">
-          <div class="sec-lbl">Policy rates &amp; next decision</div>
-          <div class="rates">
-            <div class="rate-card"><div class="top"><span class="bank">FOMC</span><span class="r">3.75%</span></div><div class="next">next decision &middot; 29 Jul</div></div>
-            <div class="rate-card"><div class="top"><span class="bank">ECB</span><span class="r">2.40%</span></div><div class="next">next decision &middot; late Jul</div></div>
-            <div class="rate-card"><div class="top"><span class="bank">BoJ</span><span class="r">1.00%</span></div><div class="next">next decision &middot; 31 Jul</div></div>
-            <div class="rate-card"><div class="top"><span class="bank">RBA</span><span class="r">4.35%</span></div><div class="next">next decision &middot; 10&ndash;11 Aug</div></div>
-            <div class="rate-card"><div class="top"><span class="bank">MAS</span><span class="r">S$NEER</span></div><div class="next">band-based policy &middot; quarterly review, next late Jul</div></div>
-          </div>
+          <div class="sec-lbl">Policy rates &amp; next decision <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;">&middot; levels as of Aug 2026</span></div>
+          <div class="rates" id="rates"></div>
           <div class="sec-lbl" style="margin-top:18px;">Data releases</div>
           <div id="releases"></div>
         </div>
@@ -559,23 +553,21 @@ var HOLDINGS = [
   { t: 'BHP.AX', n: 'BHP Group',    sh: '200 sh', w: 8,  chg: -3.2 }
 ];
 
-var RELEASES = [
-  { k: 'GDP', b: 'China GDP (Q2)',       s: 'NBS',            when: 'Wed 15 Jul' },
-  { k: 'CPI', b: 'US CPI (Jun)',         s: 'BLS',            when: 'Wed 15 Jul' },
-  { k: 'CPI', b: 'Singapore CPI (Jun)',  s: 'SingStat',       when: 'Thu 23 Jul' },
-  { k: 'NFP', b: 'US Nonfarm payrolls',  s: 'BLS · Jul', when: 'Fri 07 Aug' }
+// Central-bank policy (rate level is point-in-time; meeting dates are the real
+// published 2026 schedule, so the panel always shows the NEXT upcoming date).
+var BANKS = [
+  { name: 'FOMC', rate: '3.50–3.75%', meetings: ['2026-09-16', '2026-10-28', '2026-12-09'] },
+  { name: 'ECB',  rate: '2.25%',      meetings: ['2026-09-10', '2026-10-29', '2026-12-17'] },
+  { name: 'BoJ',  rate: '1.00%',      meetings: ['2026-09-18', '2026-10-30', '2026-12-18'] },
+  { name: 'RBA',  rate: '4.35%',      meetings: ['2026-08-11', '2026-09-29', '2026-12-08'] },
+  { name: 'MAS',  rate: 'S$NEER', note: 'band-based policy', reviewText: 'next review · Oct 2026' }
 ];
-
-var CAL = [
-  { d: '2026-07-15', b: 'China GDP Q2 + US CPI (Jun)', s: 'Data', kind: 'central' },
-  { d: '2026-07-15', b: 'ASML Q2 earnings',            s: 'Cons. EPS US$7.94 / rev US$10.3B', kind: 'earnings' },
-  { d: '2026-07-16', b: 'TSMC Q2 earnings',            s: 'AI capex read-through', kind: 'earnings' },
-  { d: '2026-07-23', b: 'Singapore CPI (Jun)',         s: 'Data', kind: 'central' },
-  { d: '2026-07-29', b: 'FOMC decision',               s: 'Central banks', kind: 'central' },
-  { d: '2026-07-31', b: 'BoJ decision',                s: 'Central banks', kind: 'central' },
-  { d: '2026-08-07', b: 'US nonfarm payrolls (Jul)',   s: 'Data', kind: 'central' },
-  { d: '2026-08-10', b: 'RBA decision',                s: 'Central banks · 10–11 Aug', kind: 'central' },
-  { d: '2026-08-26', b: 'NVDA earnings',               s: 'After US close', kind: 'earnings' }
+// Scheduled macro releases (real 2026 dates; the panel shows only upcoming ones).
+var RELEASES = [
+  { k: 'NFP', name: 'US Nonfarm payrolls', source: 'BLS · Aug', date: '2026-09-04' },
+  { k: 'CPI', name: 'US CPI (Aug)',        source: 'BLS',       date: '2026-09-11' },
+  { k: 'CPI', name: 'Singapore CPI',       source: 'SingStat',  date: '2026-08-25', approx: true },
+  { k: 'GDP', name: 'China GDP (Q3)',      source: 'NBS',       date: '2026-10-19', approx: true }
 ];
 
 var RESEARCH = {
@@ -1085,6 +1077,7 @@ function pollEarnings() {
       (data.results || []).forEach(function (e) { EARN[e.symbol] = e; });
       renderWatchlist();
       renderEarningsPanel();
+      renderCalendar();
     })
     .catch(function () { renderEarningsPanel(); });
 }
@@ -1093,16 +1086,44 @@ renderEarningsPanel();
 pollEarnings();
 setInterval(pollEarnings, 6 * 3600 * 1000);
 
-/* ================= releases ================= */
-(function () {
-  var box = document.getElementById('releases');
-  RELEASES.forEach(function (r) {
-    box.appendChild(el('div', 'rel',
-      '<span class="k">' + esc(r.k) + '</span>' +
-      '<span class="what"><b>' + esc(r.b) + '</b><span>' + esc(r.s) + '</span></span>' +
-      '<span class="when">' + esc(r.when) + '</span>'));
-  });
-})();
+/* ============ macro: policy rates + data releases (self-advancing) ============ */
+function nextMeeting(meetings) {
+  for (var i = 0; i < meetings.length; i++) if (daysUntil(meetings[i]) >= 0) return meetings[i];
+  return null;
+}
+function renderMacro() {
+  var rb = document.getElementById('rates');
+  if (rb) {
+    rb.innerHTML = '';
+    BANKS.forEach(function (bk) {
+      var nextTxt;
+      if (bk.reviewText) nextTxt = bk.note + ' · ' + bk.reviewText;
+      else {
+        var nm = nextMeeting(bk.meetings || []);
+        nextTxt = nm ? ('next decision · ' + fmtDate(nm) + ' · ' + inDays(nm)) : 'next decision · TBA';
+      }
+      rb.appendChild(el('div', 'rate-card',
+        '<div class="top"><span class="bank">' + esc(bk.name) + '</span><span class="r">' + esc(bk.rate) + '</span></div>' +
+        '<div class="next">' + esc(nextTxt) + '</div>'));
+    });
+  }
+  var lb = document.getElementById('releases');
+  if (lb) {
+    lb.innerHTML = '';
+    var up = RELEASES.filter(function (r) { return daysUntil(r.date) >= 0; })
+      .sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    if (!up.length) {
+      lb.appendChild(el('div', 'empty', 'No scheduled releases in view — ask Claude to extend the calendar.'));
+    } else up.forEach(function (r) {
+      var approx = r.approx ? ' <span class="badge warn">approx</span>' : '';
+      lb.appendChild(el('div', 'rel',
+        '<span class="k">' + esc(r.k) + '</span>' +
+        '<span class="what"><b>' + esc(r.name) + '</b><span>' + esc(r.source) + '</span></span>' +
+        '<span class="when">' + esc(fmtDate(r.date)) + ' · ' + inDays(r.date) + approx + '</span>'));
+    });
+  }
+}
+renderMacro();
 
 /* ================= research tabs ================= */
 (function () {
@@ -1151,18 +1172,38 @@ setInterval(pollEarnings, 6 * 3600 * 1000);
   });
 })();
 
-/* ================= calendar ================= */
-(function () {
+/* ============ calendar (self-advancing: banks + releases + live earnings) ============ */
+function renderCalendar() {
   var box = document.getElementById('calendar');
+  if (!box) return;
   var mnames = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-  CAL.forEach(function (c) {
+  var items = [];
+  BANKS.forEach(function (bk) {
+    if (bk.reviewText) return; // MAS review date is approximate — omit from the dated calendar
+    var nm = nextMeeting(bk.meetings || []);
+    if (nm) items.push({ d: nm, b: bk.name + ' decision', s: 'Central banks', kind: 'central' });
+  });
+  RELEASES.forEach(function (r) {
+    if (daysUntil(r.date) >= 0) items.push({ d: r.date, b: r.name, s: r.source, kind: 'central' });
+  });
+  earnSymbols().forEach(function (t) {
+    var e = EARN[t];
+    if (e && e.ok && e.earningsDate && daysUntil(e.earningsDate) >= 0)
+      items.push({ d: e.earningsDate, b: nameFor(t) + ' earnings', s: 'Earnings', kind: 'earnings' });
+  });
+  items.sort(function (a, b) { return a.d < b.d ? -1 : 1; });
+  items = items.slice(0, 8);
+  box.innerHTML = '';
+  if (!items.length) { box.appendChild(el('div', 'empty', 'Nothing scheduled in view.')); return; }
+  items.forEach(function (c) {
     var p = c.d.split('-');
     box.appendChild(el('div', 'cal-day',
       '<span class="cal-date"><div class="dd">' + (+p[2]) + '</div><div class="mm">' + mnames[+p[1] - 1] + '</div></span>' +
       '<span class="cal-what"><b>' + esc(c.b) + '</b><span>' + esc(c.s) + ' · ' + inDays(c.d) + '</span></span>' +
       '<span class="cal-kind"><span class="kind ' + c.kind + '">' + (c.kind === 'central' ? 'CENTRAL' : 'EARNINGS') + '</span></span>'));
   });
-})();
+}
+renderCalendar();
 
 /* ================= prompts ================= */
 (function () {
