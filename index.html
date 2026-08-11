@@ -471,7 +471,7 @@
           <div class="sec-lbl">Upcoming earnings</div>
           <div id="earnings"></div>
           <div class="sec-lbl" style="margin-top:16px;">Ex-dividend dates</div>
-          <div class="empty">No ex-div dates could be confirmed for this snapshot &mdash; the previous list was placeholder data. Ask Claude to refresh with sourced dates.</div>
+          <div id="exdiv"></div>
         </div>
       </section>
 
@@ -751,7 +751,22 @@ renderTape();
 
 /* ============ shared live-quote store & formatting ============ */
 var LIVE = {}; // symbol -> latest quote {ok, price, changePct, currency, exchange}
+var EARN = {}; // symbol -> {ok, earningsDate, estimate, exDivDate} from /api/earnings
 var deskPoll = null; // set by the live engine; lets the Add button refresh immediately
+var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function fmtDate(iso) { // 'YYYY-MM-DD' -> '26 Aug'
+  if (!iso) return '';
+  var p = iso.split('-');
+  return (+p[2]) + ' ' + MONTHS[+p[1] - 1];
+}
+// The watchlist "Next Results" cell, driven by live earnings data.
+function earnCell(t) {
+  var e = EARN[t];
+  if (!e) return '<span class="nm">&hellip;</span>';                     // not fetched yet
+  if (!e.ok || !e.earningsDate) return '<span class="nm">&mdash;</span>'; // unknown
+  var est = e.estimate ? ' <span class="badge warn">est</span>' : '';
+  return esc(fmtDate(e.earningsDate)) + ' <span class="nm">· ' + inDays(e.earningsDate) + '</span>' + est;
+}
 var CUR_PREFIX = { USD: 'US$', HKD: 'HK$', SGD: 'S$', AUD: 'A$', JPY: '¥', KRW: '₩', EUR: '€', GBP: '£', CNY: '¥', TWD: 'NT$' };
 var ZERO_DP = { JPY: 1, KRW: 1, HKD: 0, CLP: 1, HUF: 1, IDR: 1, VND: 1 }; // currencies we show with no decimals
 function curPrefix(c) { return c && CUR_PREFIX[c] ? CUR_PREFIX[c] : (c ? c + ' ' : ''); }
@@ -775,9 +790,7 @@ function renderWatchlist() {
 
   visible.forEach(function (x) {
     var tr = el('tr');
-    var evTxt = x.tbc
-      ? esc(x.ev) + ' <span class="badge warn">TBC</span>'
-      : esc(x.ev) + (x.evDate ? ' <span class="nm">· ' + inDays(x.evDate) + '</span>' : '');
+    var evTxt = earnCell(x.t);
     tr.innerHTML =
       '<td><span class="tk">' + esc(x.t) + '</span><br /><span class="nm">' + esc(x.n) + '</span></td>' +
       '<td><span class="px">' + x.ccy + x.px + '</span>' + (x.asof ? '<span class="asof">as of ' + x.asof + '</span>' : '') + '</td>' +
@@ -808,7 +821,7 @@ function renderWatchlist() {
       '<td><span class="tk">' + esc(a) + '</span><br /><span class="nm">' + label + '</span></td>' +
       '<td>' + pxCell + '</td>' +
       '<td>' + chgCell + '</td>' +
-      '<td class="ev">&mdash;</td>' +
+      '<td class="ev">' + earnCell(a) + '</td>' +
       '<td><button class="rm" aria-label="Remove ' + esc(a) + '" data-t="' + esc(a) + '" data-added="1">&#10005;</button></td>';
     body.appendChild(tr);
   });
@@ -846,7 +859,8 @@ document.getElementById('addForm').addEventListener('submit', function (ev) {
   saveWl();
   renderWatchlist();
   renderMovers();
-  if (deskPoll) deskPoll(); // fetch the new ticker right away
+  if (deskPoll) deskPoll(); // fetch the new ticker's price right away
+  pollEarnings();           // and its next earnings / ex-div date
 });
 
 /* ================= movers (±5% today, with company/macro attribution) ================= */
@@ -976,22 +990,70 @@ renderWatchlist();
 renderMovers();
 renderVolume();
 
-/* ================= earnings list ================= */
-(function () {
-  var box = document.getElementById('earnings');
-  var items = STOCKS.slice().sort(function (a, b) {
-    var ad = a.evDate || '9999', bd = b.evDate || '9999';
-    return ad < bd ? -1 : ad > bd ? 1 : 0;
-  });
-  items.forEach(function (x) {
-    var when = x.tbc
-      ? '<span class="badge warn">' + esc(x.ev) + ' · TBC</span>'
-      : '<span class="num" style="font-size:12px;color:var(--ink-2);">' + esc(x.ev) + ' · ' + inDays(x.evDate) + '</span>';
-    box.appendChild(el('div', 'mv',
-      '<span class="tk">' + esc(x.t) + '</span>' +
-      '<span class="who"><b>' + esc(x.n) + '</b></span>' + when));
-  });
-})();
+/* ============ earnings & ex-div panel (live from /api/earnings) ============ */
+function earnSymbols() {
+  var set = {};
+  STOCKS.forEach(function (x) { if (wlState.removed.indexOf(x.t) === -1) set[x.t] = 1; });
+  wlState.added.forEach(function (a) { set[a] = 1; });
+  return Object.keys(set);
+}
+function nameFor(t) {
+  for (var i = 0; i < STOCKS.length; i++) if (STOCKS[i].t === t) return STOCKS[i].n;
+  return (LIVE[t] && LIVE[t].name) || t;
+}
+function anyPending(syms) { return syms.some(function (t) { return !EARN[t]; }); }
+
+function renderEarningsPanel() {
+  var syms = earnSymbols();
+  var eBox = document.getElementById('earnings');
+  var xBox = document.getElementById('exdiv');
+  if (eBox) {
+    eBox.innerHTML = '';
+    var up = syms.map(function (t) { return { t: t, e: EARN[t] }; })
+      .filter(function (o) { return o.e && o.e.ok && o.e.earningsDate && daysUntil(o.e.earningsDate) >= 0; })
+      .sort(function (a, b) { return a.e.earningsDate < b.e.earningsDate ? -1 : 1; });
+    if (!up.length) {
+      eBox.appendChild(el('div', 'empty', anyPending(syms) ? 'Loading earnings dates…' : 'No upcoming earnings for your watchlist.'));
+    } else up.forEach(function (o) {
+      var est = o.e.estimate ? ' <span class="badge warn">est</span>' : '';
+      eBox.appendChild(el('div', 'mv',
+        '<span class="tk">' + esc(o.t) + '</span>' +
+        '<span class="who"><b>' + esc(nameFor(o.t)) + '</b></span>' +
+        '<span class="num" style="font-size:12px;color:var(--ink-2);">' + esc(fmtDate(o.e.earningsDate)) + ' · ' + inDays(o.e.earningsDate) + '</span>' + est));
+    });
+  }
+  if (xBox) {
+    xBox.innerHTML = '';
+    var xd = syms.map(function (t) { return { t: t, e: EARN[t] }; })
+      .filter(function (o) { return o.e && o.e.ok && o.e.exDivDate && daysUntil(o.e.exDivDate) >= 0; })
+      .sort(function (a, b) { return a.e.exDivDate < b.e.exDivDate ? -1 : 1; });
+    if (!xd.length) {
+      xBox.appendChild(el('div', 'empty', anyPending(syms) ? 'Loading ex-dividend dates…' : 'No upcoming ex-dividend dates for your watchlist.'));
+    } else xd.forEach(function (o) {
+      xBox.appendChild(el('div', 'mv',
+        '<span class="tk">' + esc(o.t) + '</span>' +
+        '<span class="who"><b>' + esc(nameFor(o.t)) + '</b></span>' +
+        '<span class="num" style="font-size:12px;color:var(--ink-2);">ex-date ' + esc(fmtDate(o.e.exDivDate)) + ' · ' + inDays(o.e.exDivDate) + '</span>'));
+    });
+  }
+}
+
+function pollEarnings() {
+  var syms = earnSymbols();
+  if (!syms.length) { renderEarningsPanel(); return; }
+  fetch('/api/earnings?symbols=' + encodeURIComponent(syms.join(',')))
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      (data.results || []).forEach(function (e) { EARN[e.symbol] = e; });
+      renderWatchlist();
+      renderEarningsPanel();
+    })
+    .catch(function () { renderEarningsPanel(); });
+}
+
+renderEarningsPanel();
+pollEarnings();
+setInterval(pollEarnings, 6 * 3600 * 1000);
 
 /* ================= releases ================= */
 (function () {
