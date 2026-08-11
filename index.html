@@ -453,14 +453,12 @@
       <section class="card">
         <div class="card-h"><span>&#128177;</span><h2>FX &mdash; SGD crosses</h2></div>
         <div class="card-b">
-          <div class="fx-row"><span class="pair">SGD/USD</span><span class="rate">0.7743</span><span class="badge na">10 Jul</span></div>
-          <p class="fx-note">USD/SGD 1.2915 &middot; Fed H.10 / Yahoo Finance</p>
-          <div class="fx-row"><span class="pair">SGD/AUD</span><span class="rate">1.1165</span><span class="badge up">+0.3% est</span></div>
-          <p class="fx-note">Derived cross &middot; AUD/USD 0.6935 (13 Jul) near 3-month lows &mdash; AUD weakness keeps the cross bid</p>
-          <div class="sec-lbl" style="margin-top:14px;">Daily commentary &middot; 14 Jul</div>
-          <div class="commentary">
-            <b>Risk-off into CPI week.</b> Washington&rsquo;s reinstated blockade on Iranian shipping through the Strait of Hormuz lifted Brent ~3.7% to US$78.85 and pushed the US 10-year yield to 4.60%. The Seoul chip rout (SK&nbsp;Hynix &minus;12.7%, Samsung &minus;10.7%) is dragging <b>KOSPI</b>, while <b>AUD</b> sits near three-month lows around US$0.6935, keeping SGD/AUD near 1.12. <b>USD/SGD</b> holds ~1.29 ahead of Wednesday&rsquo;s US CPI and China Q2 GDP.
-          </div>
+          <div class="fx-row"><span class="pair">SGD/USD</span><span class="rate" id="fxSgdUsd">&mdash;</span><span class="badge na" id="fxSgdUsdChg">&hellip;</span></div>
+          <p class="fx-note" id="fxSgdUsdNote">Yahoo Finance</p>
+          <div class="fx-row"><span class="pair">SGD/AUD</span><span class="rate" id="fxSgdAud">&mdash;</span><span class="badge na" id="fxSgdAudChg">&hellip;</span></div>
+          <p class="fx-note" id="fxSgdAudNote">Yahoo Finance</p>
+          <div class="sec-lbl" style="margin-top:14px;" id="fxSummaryLbl">Live FX snapshot</div>
+          <div class="commentary" id="fxSummary">Waiting for live FX&hellip;</div>
         </div>
       </section>
 
@@ -752,6 +750,7 @@ renderTape();
 /* ============ shared live-quote store & formatting ============ */
 var LIVE = {}; // symbol -> latest quote {ok, price, changePct, currency, exchange}
 var EARN = {}; // symbol -> {ok, earningsDate, estimate, exDivDate} from /api/earnings
+var FX_SYMS = ['SGD/USD', 'SGD/AUD', 'AUD/USD']; // fetched live for the FX card
 var deskPoll = null; // set by the live engine; lets the Add button refresh immediately
 var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function fmtDate(iso) { // 'YYYY-MM-DD' -> '26 Aug'
@@ -986,6 +985,45 @@ function renderVolume() {
   });
 }
 
+/* ================= FX card (live SGD crosses) ================= */
+function setFxBadge(id, pct) {
+  var elm = document.getElementById(id);
+  if (!elm) return;
+  if (pct == null) { elm.className = 'badge na'; elm.textContent = '—'; return; }
+  var p = Math.round(pct * 10) / 10;
+  var cls = p > 0 ? 'up' : (p < 0 ? 'down' : 'na');
+  elm.className = 'badge ' + cls;
+  elm.textContent = (p > 0 ? '+' : (p < 0 ? '−' : '')) + Math.abs(p).toFixed(1) + '%';
+}
+function renderFx() {
+  var u = LIVE['SGD/USD'], a = LIVE['SGD/AUD'], au = LIVE['AUD/USD'];
+  var eU = document.getElementById('fxSgdUsd'), eA = document.getElementById('fxSgdAud');
+  if (eU && u && u.ok) {
+    eU.textContent = u.price.toFixed(4);
+    setFxBadge('fxSgdUsdChg', u.changePct);
+    document.getElementById('fxSgdUsdNote').innerHTML = 'USD/SGD ' + (1 / u.price).toFixed(4) + ' &middot; Yahoo Finance';
+  }
+  if (eA && a && a.ok) {
+    eA.textContent = a.price.toFixed(4);
+    setFxBadge('fxSgdAudChg', a.changePct);
+    document.getElementById('fxSgdAudNote').innerHTML =
+      (au && au.ok ? 'AUD/USD ' + au.price.toFixed(4) + ' &middot; ' : '') + 'Yahoo Finance';
+  }
+  if (u && u.ok && a && a.ok) {
+    function sp(v) { if (v == null) return 'n/a'; var r = Math.round(v * 10) / 10; return (r > 0 ? '+' : (r < 0 ? '−' : '')) + Math.abs(r).toFixed(1) + '%'; }
+    var t = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Singapore', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
+    document.getElementById('fxSummaryLbl').textContent = 'Live FX snapshot · ' + t + ' SGT';
+    var parts = [
+      'SGD/USD ' + u.price.toFixed(4) + ' (' + sp(u.changePct) + ' today)',
+      'SGD/AUD ' + a.price.toFixed(4) + ' (' + sp(a.changePct) + ')',
+      'USD/SGD ' + (1 / u.price).toFixed(4)
+    ];
+    if (au && au.ok) parts.push('AUD/USD ' + au.price.toFixed(4));
+    document.getElementById('fxSummary').innerHTML =
+      parts.join(' &middot; ') + '. <span style="color:var(--muted)">Auto-generated from live prices.</span>';
+  }
+}
+
 renderWatchlist();
 renderMovers();
 renderVolume();
@@ -1218,6 +1256,7 @@ setInterval(pollEarnings, 6 * 3600 * 1000);
     renderWatchlist();
     renderMovers();
     renderVolume();
+    renderFx();
     return { live: live, requested: requested };
   }
 
@@ -1226,6 +1265,7 @@ setInterval(pollEarnings, 6 * 3600 * 1000);
     TAPE.forEach(function (x) { if (x.sym) set[x.sym] = 1; });
     STOCKS.forEach(function (x) { if (wlState.removed.indexOf(x.t) === -1) set[x.t] = 1; });
     wlState.added.forEach(function (a) { set[a] = 1; });
+    FX_SYMS.forEach(function (s) { set[s] = 1; });
     return Object.keys(set);
   }
 

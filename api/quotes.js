@@ -17,6 +17,7 @@ const YF_MAP = {
   SPX: '^GSPC', IXIC: '^IXIC', DJI: '^DJI', STI: '^STI', N225: '^N225',
   HSI: '^HSI', XJO: '^AXJO', KS11: '^KS11',
   'XAU/USD': 'GC=F', 'XAG/USD': 'SI=F', COPPER: 'HG=F', BRENT: 'BZ=F', 'BTC/USD': 'BTC-USD',
+  'SGD/USD': 'SGDUSD=X', 'SGD/AUD': 'SGDAUD=X', 'AUD/USD': 'AUDUSD=X',
   NVDA: 'NVDA', TSM: 'TSM', ASML: 'ASML', AAPL: 'AAPL',
   '000660.KS': '000660.KS', '005930.KS': '005930.KS',
   'D05.SI': 'D05.SI', 'BHP.AX': 'BHP.AX', '7203.T': '7203.T'
@@ -28,6 +29,7 @@ const NAME_SEED = {
   SPX: 'S&P 500', IXIC: 'NASDAQ', DJI: 'Dow Jones', STI: 'STI', N225: 'Nikkei 225', HSI: 'Hang Seng',
   XJO: 'ASX 200', KS11: 'KOSPI', 'XAU/USD': 'Gold', 'XAG/USD': 'Silver', COPPER: 'Copper',
   BRENT: 'Brent Crude', 'BTC/USD': 'Bitcoin',
+  'SGD/USD': 'SGD/USD', 'SGD/AUD': 'SGD/AUD', 'AUD/USD': 'AUD/USD',
   NVDA: 'NVIDIA', TSM: 'TSMC ADR', ASML: 'ASML Holding', AAPL: 'Apple',
   '000660.KS': 'SK Hynix', '005930.KS': 'Samsung Elec', 'D05.SI': 'DBS Group',
   'BHP.AX': 'BHP Group', '7203.T': 'Toyota Motor'
