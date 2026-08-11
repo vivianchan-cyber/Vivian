@@ -242,6 +242,13 @@
   .fx-row .rate { font-family: var(--mono); font-size: 24px; font-weight: 650; font-variant-numeric: tabular-nums; }
   .fx-row .badge { margin-left: auto; }
   .fx-note { font-size: 11.5px; color: var(--muted); margin: -4px 0 8px; }
+  .ust-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; }
+  @media (max-width: 480px) { .ust-grid { grid-template-columns: 1fr; } }
+  .ust-row { display: flex; align-items: baseline; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .ust-row .mat { font-size: 12.5px; font-weight: 650; color: var(--ink-2); min-width: 34px; }
+  .ust-row .y { font-family: var(--mono); font-size: 18px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .ust-row .bp { margin-left: auto; font-family: var(--mono); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+  .ust-note { font-size: 11px; color: var(--muted); margin-top: 10px; }
   .commentary {
     background: var(--surface-2); border-left: 3px solid var(--accent);
     border-radius: 0 10px 10px 0; padding: 12px 14px; font-size: 13px; color: var(--ink-2);
@@ -443,6 +450,12 @@
     <!-- ============ RIGHT ============ -->
     <div class="col">
 
+      <!-- US Treasury yields -->
+      <section class="card">
+        <div class="card-h"><span>&#127963;</span><h2>US Treasury Yields</h2></div>
+        <div class="card-b" id="ust"></div>
+      </section>
+
       <!-- fx -->
       <section class="card">
         <div class="card-h"><span>&#128177;</span><h2>FX &mdash; SGD crosses</h2></div>
@@ -510,7 +523,7 @@ var TAPE = [
   { lbl: 'HSI',     val: '24,175',   chg: 0.6,  sym: 'HSI' },
   { lbl: 'ASX 200', val: '8,792.10', chg: -0.2, sym: 'XJO' },
   { lbl: 'KOSPI',   val: '7,347.37', chg: -1.7, sym: 'KS11' },
-  { lbl: 'US10Y',   val: '4.60%',    chg: null, chgTxt: '+4 bp', dir: 1 },
+  { lbl: 'US10Y',   val: '4.60%',    chg: null, sym: 'UST10Y', yield: true },
   { lbl: 'GOLD',    val: '4,001',    chg: -2.9, sym: 'XAU/USD' },
   { lbl: 'SILVER',  val: '—',        chg: null, sym: 'XAG/USD' },
   { lbl: 'COPPER',  val: '—',        chg: null, sym: 'COPPER' },
@@ -677,7 +690,7 @@ function renderTape() {
       chgHtml = '<div class="chg ' + cls + '">' + sign + Math.abs(x.chg).toFixed(1) + '%</div>';
     }
     var box = el('div', null, '<div class="lbl">' + x.lbl + '</div><div class="val">' + x.val + '</div>' + chgHtml);
-    if (x.sym) {
+    if (x.sym && !x.yield) {
       box.className = 'has-tip';
       box.setAttribute('data-lbl', x.lbl);
       if (x.ytd != null) box.setAttribute('data-ytd', signed(x.ytd, 1, '%'));
@@ -696,6 +709,10 @@ renderTape();
 var LIVE = {}; // symbol -> latest quote {ok, price, changePct, currency, exchange}
 var EARN = {}; // symbol -> {ok, earningsDate, estimate, exDivDate} from /api/earnings
 var FX_SYMS = ['SGD/USD', 'SGD/AUD', 'AUD/USD']; // fetched live for the FX card
+var UST_ROWS = [ // US Treasury yields (values quoted in %)
+  { lbl: '2Y', sym: 'UST2Y' }, { lbl: '5Y', sym: 'UST5Y' },
+  { lbl: '10Y', sym: 'UST10Y' }, { lbl: '30Y', sym: 'UST30Y' }
+];
 var deskPoll = null; // set by the live engine; lets the Add button refresh immediately
 var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function fmtDate(iso) { // 'YYYY-MM-DD' -> '26 Aug'
@@ -929,6 +946,32 @@ function renderVolume() {
       '<span class="badge ' + (x.r >= 3 ? 'down' : 'warn') + '">' + x.r.toFixed(1) + '× vol</span>'));
   });
 }
+
+/* ================= US Treasury yields card (live) ================= */
+function renderUST() {
+  var box = document.getElementById('ust');
+  if (!box) return;
+  var anyLive = false;
+  var html = '<div class="ust-grid">';
+  UST_ROWS.forEach(function (u) {
+    var q = LIVE[u.sym];
+    var y = '&mdash;', bp = '';
+    if (q && q.ok && typeof q.price === 'number') {
+      anyLive = true;
+      y = q.price.toFixed(2) + '%';
+      if (q.prevClose != null) {
+        var d = Math.round((q.price - q.prevClose) * 100);
+        var cls = d > 0 ? 'u' : (d < 0 ? 'd' : 'flat');
+        var sign = d > 0 ? '+' : (d < 0 ? '−' : '');
+        bp = '<span class="bp ' + cls + '">' + sign + Math.abs(d) + ' bp</span>';
+      }
+    }
+    html += '<div class="ust-row"><span class="mat">' + u.lbl + '</span><span class="y">' + y + '</span>' + bp + '</div>';
+  });
+  html += '</div><div class="ust-note">Daily change in basis points · Yahoo Finance' + (anyLive ? '' : ' · loading…') + '</div>';
+  box.innerHTML = html;
+}
+renderUST();
 
 /* ================= FX card (live SGD crosses) ================= */
 function setFxBadge(id, pct) {
@@ -1269,9 +1312,18 @@ renderCalendar();
       requested++;
       if (q.ok) {
         live++;
-        x.val = fmt(q.price, x.val);
-        if (q.changePct != null) { x.chg = round1(q.changePct); x.chgTxt = null; x.dir = undefined; }
-        if (q.ytdPct != null) x.ytd = q.ytdPct;
+        if (x.yield) {
+          x.val = q.price.toFixed(2) + '%';
+          if (q.prevClose != null) {
+            var bp = Math.round((q.price - q.prevClose) * 100);
+            x.chgTxt = (bp > 0 ? '+' : (bp < 0 ? '−' : '')) + Math.abs(bp) + ' bp';
+            x.dir = bp >= 0 ? 1 : -1; x.chg = null;
+          }
+        } else {
+          x.val = fmt(q.price, x.val);
+          if (q.changePct != null) { x.chg = round1(q.changePct); x.chgTxt = null; x.dir = undefined; }
+          if (q.ytdPct != null) x.ytd = q.ytdPct;
+        }
       }
     });
     STOCKS.forEach(function (x) {
@@ -1292,6 +1344,7 @@ renderCalendar();
     renderMovers();
     renderVolume();
     renderFx();
+    renderUST();
     renderPortfolio();
     return { live: live, requested: requested };
   }
@@ -1302,6 +1355,7 @@ renderCalendar();
     STOCKS.forEach(function (x) { if (wlState.removed.indexOf(x.t) === -1) set[x.t] = 1; });
     wlState.added.forEach(function (a) { set[a] = 1; });
     FX_SYMS.forEach(function (s) { set[s] = 1; });
+    UST_ROWS.forEach(function (u) { set[u.sym] = 1; });
     return Object.keys(set);
   }
 

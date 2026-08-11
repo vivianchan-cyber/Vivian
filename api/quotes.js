@@ -18,6 +18,7 @@ const YF_MAP = {
   HSI: '^HSI', XJO: '^AXJO', KS11: '^KS11',
   'XAU/USD': 'GC=F', 'XAG/USD': 'SI=F', COPPER: 'HG=F', BRENT: 'BZ=F', 'BTC/USD': 'BTC-USD',
   'SGD/USD': 'SGDUSD=X', 'SGD/AUD': 'SGDAUD=X', 'AUD/USD': 'AUDUSD=X',
+  UST2Y: '2YY=F', UST5Y: '^FVX', UST10Y: '^TNX', UST30Y: '^TYX', // yields, quoted in %
   NVDA: 'NVDA', TSM: 'TSM', ASML: 'ASML', AAPL: 'AAPL',
   '000660.KS': '000660.KS', '005930.KS': '005930.KS',
   'D05.SI': 'D05.SI', 'BHP.AX': 'BHP.AX', '7203.T': '7203.T'
@@ -30,6 +31,7 @@ const NAME_SEED = {
   XJO: 'ASX 200', KS11: 'KOSPI', 'XAU/USD': 'Gold', 'XAG/USD': 'Silver', COPPER: 'Copper',
   BRENT: 'Brent Crude', 'BTC/USD': 'Bitcoin',
   'SGD/USD': 'SGD/USD', 'SGD/AUD': 'SGD/AUD', 'AUD/USD': 'AUD/USD',
+  UST2Y: 'US 2Y', UST5Y: 'US 5Y', UST10Y: 'US 10Y', UST30Y: 'US 30Y',
   NVDA: 'NVIDIA', TSM: 'TSMC ADR', ASML: 'ASML Holding', AAPL: 'Apple',
   '000660.KS': 'SK Hynix', '005930.KS': 'Samsung Elec', 'D05.SI': 'DBS Group',
   'BHP.AX': 'BHP Group', '7203.T': 'Toyota Motor'
@@ -87,6 +89,7 @@ function parseYahoo(display, json) {
 
   return {
     symbol: display, ok: true, price: price, changePct: changePct, ytdPct: ytdPct,
+    prevClose: (typeof prev === 'number' ? prev : null),
     currency: meta.currency || null,
     exchange: meta.fullExchangeName || meta.exchangeName || null,
     volume: today, avgVol3M: avgVol3M, volRatio: volRatio
