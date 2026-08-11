@@ -485,19 +485,11 @@
     </div>
   </div>
 
-  <!-- assistant -->
-  <section class="card assistant">
-    <div class="card-h"><span>&#129302;</span><h2>AI Assistant</h2></div>
-    <div class="card-b" id="prompts"></div>
-  </section>
-
   <footer class="desk-foot">
-    Prices refresh live from your data provider via a secure proxy; anything the plan doesn&rsquo;t cover falls back to the 13&ndash;14 Jul snapshot and is counted in the status chip.<br />
+    Prices refresh live via a secure proxy; a symbol the feed can&rsquo;t return falls back to its last value and is counted in the status chip.<br />
     Central-bank rate levels are point-in-time (as labelled); meeting/release dates self-advance. Not investment advice. &middot; Built for Vivian
   </footer>
 </div>
-
-<div class="toast" id="toast" role="status">Copied to clipboard</div>
 
 <script>
 /* =====================================================================
@@ -567,15 +559,6 @@ var RELEASES = [
 
 var RESEARCH_TOPICS = ['AI & Semis', 'China', 'Japan', 'Energy'];
 var RESEARCHLIVE = {}; // label -> [{title, publisher, link, time}] (undefined = loading)
-
-var PROMPTS = [
-  'Why is SK Hynix down 12%?',
-  'Prepare tomorrow’s morning note.',
-  'Summarize today’s semis headlines.',
-  'Which of my holdings report earnings this week?',
-  'What does the Hormuz blockade mean for Brent and SGD?',
-  'Add a symbol to my live watchlist mapping.'
-];
 
 /* ================= helpers ================= */
 function el(tag, cls, html) {
@@ -1239,30 +1222,6 @@ function renderCalendar() {
   });
 }
 renderCalendar();
-
-/* ================= prompts ================= */
-(function () {
-  var box = document.getElementById('prompts');
-  var toast = document.getElementById('toast');
-  var toastTimer = null;
-  PROMPTS.forEach(function (p) {
-    var b = el('button', 'prompt-row',
-      '<span class="arrow">&#9654;</span><span>' + esc(p) + '</span><span class="copy">copy</span>');
-    b.addEventListener('click', function () {
-      function done() {
-        toast.classList.add('show');
-        clearTimeout(toastTimer);
-        toastTimer = setTimeout(function () { toast.classList.remove('show'); }, 1600);
-      }
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(p).then(done, done);
-      } else { done(); }
-    });
-    box.appendChild(b);
-  });
-  box.appendChild(el('p', 'hint',
-    'Prompts to bring to Claude — clicking copies the question so you can paste it into a chat.'));
-})();
 
 /* =====================================================================
    LIVE DATA ENGINE
