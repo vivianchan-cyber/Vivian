@@ -469,14 +469,12 @@
         </div>
       </section>
 
-      <!-- earnings & exdiv -->
+      <!-- ex-dividend dates -->
       <section class="card">
-        <div class="card-h"><span>&#128198;</span><h2>Earnings &amp; Ex-Div</h2></div>
+        <div class="card-h"><span>&#128181;</span><h2>Ex-Dividend Dates</h2></div>
         <div class="card-b">
-          <div class="sec-lbl">Upcoming earnings</div>
-          <div id="earnings"></div>
-          <div class="sec-lbl" style="margin-top:16px;">Ex-dividend dates</div>
           <div id="exdiv"></div>
+          <p class="pf-note" id="exdivNote" style="margin-top:12px;">Earnings dates are in the watchlist&rsquo;s &ldquo;Next Results&rdquo; column. Ex-dates are the last day to buy for the next dividend.</p>
         </div>
       </section>
 
@@ -1031,23 +1029,7 @@ function anyPending(syms) { return syms.some(function (t) { return !EARN[t]; });
 
 function renderEarningsPanel() {
   var syms = earnSymbols();
-  var eBox = document.getElementById('earnings');
   var xBox = document.getElementById('exdiv');
-  if (eBox) {
-    eBox.innerHTML = '';
-    var up = syms.map(function (t) { return { t: t, e: EARN[t] }; })
-      .filter(function (o) { return o.e && o.e.ok && o.e.earningsDate && daysUntil(o.e.earningsDate) >= 0; })
-      .sort(function (a, b) { return a.e.earningsDate < b.e.earningsDate ? -1 : 1; });
-    if (!up.length) {
-      eBox.appendChild(el('div', 'empty', anyPending(syms) ? 'Loading earnings dates…' : 'No upcoming earnings for your watchlist.'));
-    } else up.forEach(function (o) {
-      var est = o.e.estimate ? ' <span class="badge warn">est</span>' : '';
-      eBox.appendChild(el('div', 'mv',
-        '<span class="tk">' + esc(o.t) + '</span>' +
-        '<span class="who"><b>' + esc(nameFor(o.t)) + '</b></span>' +
-        '<span class="num" style="font-size:12px;color:var(--ink-2);">' + esc(fmtDate(o.e.earningsDate)) + ' · ' + inDays(o.e.earningsDate) + '</span>' + est));
-    });
-  }
   if (xBox) {
     xBox.innerHTML = '';
     var xd = syms.map(function (t) { return { t: t, e: EARN[t] }; })
