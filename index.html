@@ -242,12 +242,12 @@
   .fx-row .rate { font-family: var(--mono); font-size: 24px; font-weight: 650; font-variant-numeric: tabular-nums; }
   .fx-row .badge { margin-left: auto; }
   .fx-note { font-size: 11.5px; color: var(--muted); margin: -4px 0 8px; }
-  .ust-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; }
-  @media (max-width: 480px) { .ust-grid { grid-template-columns: 1fr; } }
-  .ust-row { display: flex; align-items: baseline; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line); }
-  .ust-row .mat { font-size: 12.5px; font-weight: 650; color: var(--ink-2); min-width: 34px; }
-  .ust-row .y { font-family: var(--mono); font-size: 18px; font-weight: 650; font-variant-numeric: tabular-nums; }
-  .ust-row .bp { margin-left: auto; font-family: var(--mono); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+  .ust-grid { display: flex; flex-direction: column; }
+  .ust-row { display: flex; align-items: baseline; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+  .ust-row:last-child { border-bottom: none; }
+  .ust-row .mat { font-size: 12.5px; font-weight: 650; color: var(--ink-2); letter-spacing: .04em; min-width: 66px; }
+  .ust-row .y { font-family: var(--mono); font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .ust-row .bp { margin-left: auto; font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; }
   .ust-note { font-size: 11px; color: var(--muted); margin-top: 10px; }
   .commentary {
     background: var(--surface-2); border-left: 3px solid var(--accent);
@@ -710,8 +710,8 @@ var LIVE = {}; // symbol -> latest quote {ok, price, changePct, currency, exchan
 var EARN = {}; // symbol -> {ok, earningsDate, estimate, exDivDate} from /api/earnings
 var FX_SYMS = ['SGD/USD', 'SGD/AUD', 'AUD/USD']; // fetched live for the FX card
 var UST_ROWS = [ // US Treasury yields (values quoted in %)
-  { lbl: '2Y', sym: 'UST2Y' }, { lbl: '5Y', sym: 'UST5Y' },
-  { lbl: '10Y', sym: 'UST10Y' }, { lbl: '30Y', sym: 'UST30Y' }
+  { lbl: '2 YEAR', sym: 'UST2Y' }, { lbl: '5 YEAR', sym: 'UST5Y' },
+  { lbl: '10 YEAR', sym: 'UST10Y' }, { lbl: '30 YEAR', sym: 'UST30Y' }
 ];
 var deskPoll = null; // set by the live engine; lets the Add button refresh immediately
 var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
